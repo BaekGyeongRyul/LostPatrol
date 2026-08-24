@@ -15,9 +15,9 @@ Web 관제 대시보드 + Supabase(DB/Storage) + Raspberry Pi(Razbot) + OpenCV/R
 
 ```
 LostPatrol_Git/
-├─ web/     React + Vite 웹 관제 대시보드 (최종 확정 버전 = web-redesign 기준)
-├─ robot/   Raspberry Pi / Razbot 로봇 제어 코드
-├─ vision/  OpenCV / Roboflow / YOLO 분실물 탐지 코드
+├─ web_백경률/     React + Vite 웹 관제 대시보드 (최종 확정 버전 = web-redesign 기준)
+├─ robot_이윤정/   Raspberry Pi / Razbot 로봇 제어 코드
+├─ vision_조은수/  OpenCV / Roboflow / YOLO 분실물 탐지 코드
 ├─ docs/    시스템 구조, Supabase 데이터 규격, 담당자별 연동 가이드
 ├─ README.md
 ├─ .gitignore
@@ -28,9 +28,9 @@ LostPatrol_Git/
 
 | 담당자 | 역할 | 관련 폴더 |
 |---|---|---|
-| 백경률 | Web + Supabase | `web/` |
-| 이윤정 | Raspberry Pi + Razbot + Line Tracking + Ultrasonic | `robot/` |
-| 조은수 | OpenCV + Roboflow + YOLO | `vision/` |
+| 백경률 | Web + Supabase | `web_백경률/` |
+| 이윤정 | Raspberry Pi + Razbot + Line Tracking + Ultrasonic | `robot_이윤정/` |
+| 조은수 | OpenCV + Roboflow + YOLO | `vision_조은수/` |
 
 먼저 읽어야 할 문서: `docs/00_README_FIRST.md`
 
@@ -65,10 +65,10 @@ LostPatrol_Git/
 - 통합 테스트 체크리스트: `docs/03_INTEGRATION_TEST_CHECKLIST.md`
 - 환경변수/보안 가이드: `docs/04_ENV_AND_SECURITY_GUIDE.md`
 
-## 실행 방법 (web/)
+## 실행 방법 (web_백경률/)
 
 ```bash
-cd web
+cd web_백경률
 npm install
 cp .env.example .env.local   # 값 채우기 (VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY)
 npm run dev
@@ -80,4 +80,4 @@ npm run dev
 
 - `service_role` key, 실제 비밀번호, 개인 인증정보는 이 저장소 어디에도 넣지 않습니다.
 - `.env`, `.env.local` 등 실제 값이 채워진 환경변수 파일은 커밋하지 않습니다 (`.env.example`만 커밋).
-- robot/vision 코드가 사용하는 `SUPABASE_SERVICE_ROLE_KEY`는 각자 로컬 `.env`에만 두세요.
+- robot_이윤정/vision_조은수 코드가 사용하는 `SUPABASE_SERVICE_ROLE_KEY`는 각자 로컬 `.env`에만 두세요.

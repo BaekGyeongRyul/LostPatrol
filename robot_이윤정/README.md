@@ -1,4 +1,4 @@
-# robot/
+# robot_이윤정/
 
 이윤정 Raspberry Pi / Razbot 코드 위치
 
