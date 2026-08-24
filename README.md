@@ -11,6 +11,12 @@ Web 관제 대시보드 + Supabase(DB/Storage) + Raspberry Pi(Razbot) + OpenCV/R
                     [OpenCV + Roboflow + YOLO]
 ```
 
+## Live Web
+
+GitHub Pages: https://BaekGyeongRyul.github.io/LostPatrol/
+
+`main` 브랜치에 push되면 GitHub Actions(`.github/workflows/deploy-pages.yml`)가 자동으로 `web_백경률`을 빌드해서 위 주소에 배포합니다.
+
 ## 폴더 구조
 
 ```
