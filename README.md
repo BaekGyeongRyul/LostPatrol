@@ -1,5 +1,7 @@
 # LostPatrol
 
+🌐 **실제 웹사이트:** https://BaekGyeongRyul.github.io/LostPatrol/
+
 공공장소 AI 분실물 탐색 · 자동 등록 순찰 로봇 프로젝트입니다.
 
 Web 관제 대시보드 + Supabase(DB/Storage) + Raspberry Pi(Razbot) + OpenCV/Roboflow/YOLO 로 구성되며, Supabase가 모든 컴포넌트를 잇는 중앙 데이터 허브입니다.
