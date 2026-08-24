@@ -1,0 +1,133 @@
+@import './styles/layout.css';
+@import './styles/components.css';
+@import './styles/pages.css';
+
+:root {
+  color-scheme: light;
+
+  /* 기업형 서비스 사이트 톤: 화이트 베이스 + 옅은 그레이 섹션 구분 */
+  --bg: #ffffff;
+  --bg-section: #f5f6f8;
+  --surface: #ffffff;
+  --surface-muted: #f5f6f8;
+  --border: #e6e7eb;
+  --border-strong: #d3d5db;
+
+  --text: #101114;
+  --text-muted: #5c5f66;
+  --text-faint: #94979e;
+
+  /* 상단 헤더는 화이트 베이스 위에 얇은 보더로 구분한다(다크 사이드바 폐기) */
+  --header-bg: #ffffff;
+  --header-border: #e6e7eb;
+
+  /* Live Camera 플레이스홀더 전용 다크 스크린 톤(전역 다크 테마와 무관) */
+  --camera-bg-start: #14171c;
+  --camera-bg-end: #05070a;
+  --camera-border: #262b33;
+  --camera-text: #9aa1ac;
+  --camera-text-strong: #f3f4f6;
+
+  /* 브랜드 포인트 컬러: 절제된 딥네이비 계열 */
+  --accent: #16305c;
+  --accent-strong: #0d1f3d;
+  --accent-soft: #eaeff6;
+  --accent-bright: #2f5fd6;
+
+  --green: #15803d;
+  --green-soft: #dcfce7;
+  --amber: #b45309;
+  --amber-soft: #fef3c7;
+  --red: #b91c1c;
+  --red-soft: #fee2e2;
+  --blue: #1d4ed8;
+  --blue-soft: #dbeafe;
+  --neutral: #475569;
+  --neutral-soft: #e2e8f0;
+
+  /* 현대적이고 단정한 각짐 — 이전보다 덜 둥글게 */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  --shadow-sm: 0 1px 2px rgba(16, 17, 20, 0.04);
+  --shadow-md: 0 12px 28px -16px rgba(16, 17, 20, 0.16);
+  --shadow-lg: 0 24px 48px -20px rgba(16, 17, 20, 0.22);
+
+  /* 공통 spacing / transition 토큰 */
+  --card-padding: 28px;
+  --gap-lg: 24px;
+  --transition-fast: 150ms ease;
+  --section-padding-y: 72px;
+  --content-width: 1240px;
+
+  --font-sans: 'Inter', system-ui, 'Segoe UI', 'Malgun Gothic', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+input,
+select {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

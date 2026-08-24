@@ -1,0 +1,228 @@
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-shell__content {
+  flex: 1;
+}
+
+/* ---------- Site header (다크 사이드바 대신 상단 글로벌 헤더) ---------- */
+
+.site-header {
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--header-border);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.site-header__inner {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  padding: 0 40px;
+  height: 68px;
+}
+
+.site-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.site-header__brand-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.site-header__brand-name {
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.site-header__nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.site-header__link {
+  position: relative;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.site-header__link:hover {
+  color: var(--text);
+  background: var(--surface-muted);
+}
+
+.site-header__link.is-active {
+  color: var(--text);
+}
+
+.site-header__link.is-active::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 3px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+.site-header__meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.site-header__clock {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.demo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--amber-soft);
+  color: var(--amber);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* ---------- Bottom nav (mobile) ---------- */
+
+.bottom-nav {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .site-header__inner {
+    padding: 0 16px;
+    height: 60px;
+    gap: 12px;
+  }
+
+  .site-header__nav {
+    display: none;
+  }
+
+  .site-header__clock {
+    display: none;
+  }
+
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -8px 24px rgba(16, 17, 20, 0.08);
+    z-index: 40;
+  }
+
+  .bottom-nav__link {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 10px 4px 12px;
+    color: var(--text-faint);
+    font-size: 10.5px;
+    font-weight: 600;
+    box-shadow: inset 0 3px 0 transparent;
+    transition: color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+
+  .bottom-nav__link.is-active {
+    color: var(--accent);
+    box-shadow: inset 0 3px 0 var(--accent);
+  }
+
+  /* 포커스 이동이나 scrollIntoView로 버튼/링크가 화면 하단에 붙을 때
+     고정 하단 네비게이션에 가려지지 않도록 여유를 둔다 */
+  button,
+  a {
+    scroll-margin-bottom: 84px;
+  }
+}
+
+@media (max-width: 480px) {
+  .site-header__brand-name {
+    font-size: 15px;
+  }
+
+  .demo-chip span {
+    display: none;
+  }
+}
+
+/* ---------- Footer ---------- */
+
+.site-footer {
+  border-top: 1px solid var(--border);
+  background: var(--bg-section);
+}
+
+.site-footer__inner {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 40px 40px 32px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 24px;
+}
+
+.site-footer__program {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.site-footer__copyright {
+  width: 100%;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  letter-spacing: 0.01em;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 900px) {
+  .site-footer__inner {
+    padding: 28px 16px 88px;
+  }
+}
