@@ -24,7 +24,7 @@
 5. **OpenCV 연결** — 사진 → PC Webcam → 최종 실제 로봇 카메라 입력 순으로 단계적 테스트
 6. **분실물 후보 판단 로직** — 일정 confidence 이상, 동일 객체가 일정 프레임/시간 동안 반복 검출 시 후보로 확정. 팀 논의에서는 2~3회 연속 검출을 검토했으나 confidence 임계값과 연속 검출 횟수 모두 아직 최종 확정값은 아닙니다.
 7. **Raspberry Pi에서 YOLO 추론 실행** — PC에서 학습, Raspberry Pi에서 추론하는 방향으로 진행 예정
-8. **Supabase 연동** — 물체 종류/confidence/사진/시간/위치/status를 `lost_items` Data Contract에 맞춰 저장
+8. **Supabase 연동** — 물체 종류/confidence/사진/시간/위치/status를 `lost_items` Data Contract에 맞춰 저장. Vision 담당 역시 추후 탐지 이미지를 `lost-item-photos`에 업로드할 예정이며, 이번 Storage RLS 정책 추가(2026.08.25, [04. 이윤정 담당](04_이윤정_RaspberryPi_Razbot.md) 참고)로 동일한 업로드 경로를 사용할 수 있도록 공통 Storage 접근 환경을 확보했습니다. 다만 Vision 쪽의 실제 업로드는 아직 진행 전입니다.
 9. **최종 통합** — Camera → Raspberry Pi/Vision → OpenCV → YOLO → 분실물 후보 판단 → Supabase → LostPatrol Web
 
 ## ⚠️ 팀 내 확인 필요

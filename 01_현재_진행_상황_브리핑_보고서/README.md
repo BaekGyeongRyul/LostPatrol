@@ -12,8 +12,8 @@ Web–Supabase–Robot(Mock Controller) 간 기본 소프트웨어 연동은 실
 ✅ Web 관제 대시보드 구현, Supabase 연동, GitHub 협업 구조, GitHub Pages 배포, Data Contract 문서화
 
 **이윤정** — Raspberry Pi / Razbot
-✅ Mock Robot Controller, Supabase 연동(anon key), Heartbeat, 순찰 상태머신, 버그 3건 수정
-🔄 Storage 이미지 업로드(현재 403 권한 오류로 미해결), 실제 Razbot 하드웨어 연동
+✅ Mock Robot Controller, Supabase 연동(anon key), Heartbeat, 순찰 상태머신, 버그 3건 수정, Storage RLS 정책 해결(2026.08.25)
+🔄 Storage 실제 업로드 결과 재검증, 실제 Razbot 하드웨어 연동
 
 **조은수** — Vision / YOLO
 ✅ 기술 스택 결정(YOLO+OpenCV, Roboflow), 가방 데이터 수집·라벨링, 가방 1종 YOLO 학습

@@ -13,6 +13,7 @@
 - anon(public) key 기반 Supabase 연동 성공, 기존 UPDATE RLS 오류 해결
 - `forward`, `patrol_start`, `patrol_stop` 명령 왕복(웹 → Supabase → Pi 처리) 확인
 - 관련 코드 팀 GitHub Repository에 commit/push 완료
+- **Supabase Storage `lost-item-photos` anon RLS 정책 적용** (2026.08.25 11:43 KST): `storage.objects`에 `anon_insert_lost_item_photos` / `anon_read_lost_item_photos` / `anon_update_lost_item_photos` 3개 정책을 `bucket_id = 'lost-item-photos'` 범위로 한정해 추가. Storage 전체가 아니라 해당 버킷에 한해 anon key의 SELECT/INSERT/UPDATE만 허용하며, `pg_policies`에 실제 등록된 것을 확인했습니다. 기존 403 RLS 오류의 원인(정책 부재)은 이 조치로 해결되었습니다.
 
 ## 코드 개발 과정에서 발견 및 수정한 버그 3건
 
@@ -24,14 +25,14 @@
 
 ## 🔄 진행 중
 
-- **Supabase Storage 실제 이미지 업로드**: `upload_capture()` 함수를 추가하고 anon key로 `lost-item-photos` 버킷 업로드를 시도했으나, 현재 **403 RLS 위반**이 확인되어 아직 해결되지 않았습니다. Storage(`storage.objects`)에 anon 업로드를 허용하는 정책이 아직 없기 때문이며, 조은수 담당자의 Vision 파이프라인도 동일한 제약을 받으므로 사전에 공유가 필요한 사항입니다.
+- **Supabase Storage 실제 업로드 결과 재검증**: RLS 정책 추가로 기존 403 오류의 원인은 해결되었으나, `upload_capture()` 재실행 후 실제 업로드된 파일이 `storage.objects`에서 아직 확인되지 않아 재검증이 필요합니다. 조은수 담당자의 Vision 파이프라인도 동일한 버킷·정책을 사용하게 되므로, 업로드 검증 결과는 사전에 공유가 필요한 사항입니다.
 
 ## ⬜ 남은 과제
 
 - 실제 Razbot 모터 제어 연동 (`YB_Pcb_Car.py` 라이브러리 연결 — `_move()` 내부 교체)
 - 실제 라인트레이싱 센서 기반 자동순찰 (`_patrol_loop()` 내부 교체)
 - 실제 초음파 센서 기반 안전정지 (`_check_obstacle()` 내부 교체, 현재는 항상 False 반환하는 stub)
-- Storage 업로드 RLS 문제 해결 및 실제 업로드 테스트
+- Storage 실제 업로드 파일 확인 테스트 (RLS 정책은 해결됨, 업로드 결과 자체의 재검증 필요)
 
 **아직 실제 Razbot 모터/라인트레이싱/초음파 기능까지 모두 완성된 것은 아니며, 현재는 Mock Controller 단계에서 Supabase 연동 로직만 검증된 상태입니다.**
 
