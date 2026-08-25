@@ -81,8 +81,13 @@ def _heartbeat_loop() -> None:
         time.sleep(HEARTBEAT_INTERVAL_SEC)
         with _state_lock:
             state, last_command = _current_state, _current_last_command
-        store.update_status(state=state, last_command=last_command)
-        print(f"[MOCK ROBOT] (heartbeat) state={state}")
+        try:
+            store.update_status(state=state, last_command=last_command)
+            print(f"[MOCK ROBOT] (heartbeat) state={state}")
+        except Exception as exc:
+            # heartbeat 스레드가 죽으면 웹이 계속 OFFLINE으로 보게 되므로
+            # 여기서 죽지 않고 다음 주기에 다시 시도한다.
+            print(f"[MOCK ROBOT] (heartbeat) 갱신 실패: {exc}")
 
 
 def _check_obstacle() -> bool:
@@ -218,21 +223,30 @@ def _patrol_loop() -> None:
     - 수동 명령(forward/backward/left/right/stop) — 안전 정지가 항상 우선
     - 장애물 감지(_check_obstacle)
     """
-    print("[MOCK ROBOT] 순찰 시작 (라인트레이싱)")
-    _set_state("moving", "patrol_start")
+    # 이 함수는 별도 스레드에서 돈다 — _handle_command의 try/except는
+    # "스레드를 시작시키는 순간"만 감싸지, 스레드 안에서 나중에 터지는
+    # 예외는 못 잡는다(파이썬 스레드 예외는 부모로 전파되지 않음). 그래서
+    # 이 함수 전체를 자체적으로 try/except로 감싸 "에러시 정지 우선"
+    # 원칙을 여기서도 지킨다.
+    try:
+        print("[MOCK ROBOT] 순찰 시작 (라인트레이싱)")
+        _set_state("moving", "patrol_start")
 
-    while _patrol_active.is_set():
-        if _check_obstacle():
-            print(f"[MOCK ROBOT] 전방 {OBSTACLE_STOP_DISTANCE_CM}cm 이내 장애물 감지 → 안전 정지")
-            _patrol_active.clear()
-            _set_state("stopped", "patrol_stop(obstacle)")
-            return
-        # 실물 연동 시: 4채널 라인트레이싱 센서 값 읽어서 조향 보정.
-        # 지금은 순찰 중이라는 것만 흉내낸다.
-        time.sleep(0.5)
+        while _patrol_active.is_set():
+            if _check_obstacle():
+                print(f"[MOCK ROBOT] 전방 {OBSTACLE_STOP_DISTANCE_CM}cm 이내 장애물 감지 → 안전 정지")
+                _patrol_active.clear()
+                _set_state("stopped", "patrol_stop(obstacle)")
+                return
+            # 실물 연동 시: 4채널 라인트레이싱 센서 값 읽어서 조향 보정.
+            # 지금은 순찰 중이라는 것만 흉내낸다.
+            time.sleep(0.5)
 
-    print("[MOCK ROBOT] 순찰 종료")
-    _set_state("idle", "patrol_stop")
+        print("[MOCK ROBOT] 순찰 종료")
+        _set_state("idle", "patrol_stop")
+    except Exception as exc:
+        print(f"[MOCK ROBOT] 순찰 중 오류 발생 → 안전 정지: {exc}")
+        _patrol_active.clear()
 
 
 def _start_patrol() -> None:
@@ -274,14 +288,23 @@ def _handle_command(record: dict) -> None:
         except Exception:
             pass
 
-    store.mark_command_done(record["id"])
+    try:
+        store.mark_command_done(record["id"])
+    except Exception as exc:
+        # 이 호출이 실패해도(예: 권한 문제) 프로그램 전체가 죽으면 안 된다 —
+        # 다음 polling 주기에 같은 명령을 다시 집어서 중복 처리할 위험은
+        # 있지만, 최소한 로봇 자체는 계속 명령을 받을 수 있는 상태를 유지한다.
+        print(f"[MOCK ROBOT] 명령 완료 처리 실패: {exc}")
 
 
 def run():
     store.init_store()
     threading.Thread(target=_heartbeat_loop, daemon=True).start()
     print("[MOCK ROBOT] 대기 중... (Ctrl+C로 종료)")
-    print(f"[MOCK ROBOT] 명령 파일 위치: {store.COMMANDS_FILE}")
+    if store.USE_SUPABASE:
+        print(f"[MOCK ROBOT] robot_commands 테이블 polling 중 ({store.SUPABASE_URL})")
+    else:
+        print(f"[MOCK ROBOT] 명령 파일 위치: {store.COMMANDS_FILE}")
 
     while True:
         for record in store.get_pending_commands():

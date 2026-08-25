@@ -10,11 +10,13 @@ Supabase에 미리 만들어져 있어야 하는 테이블 (백경률 쪽에서 
 
 robot_commands
   id          : bigint, primary key, identity(자동증가)
-  command     : text        예) "forward" | "backward" | "left" | "right"
-                             | "stop" | "capture" | "buzz"
-                             | "patrol_start" | "patrol_stop"
+  command     : text        공식 8종만 허용(RLS로 강제됨): "forward" |
+                             "backward" | "left" | "right" | "stop" |
+                             "capture" | "patrol_start" | "patrol_stop"
+                             ("buzz"는 계약에 없는 값 — 로컬 테스트 전용)
   status      : text        "pending" | "done"
   created_at  : timestamptz, default now()
+  executed_at : timestamptz, default null
 
 robot_status  (딱 한 행만 사용, id=1 고정)
   id           : bigint, primary key   -- 항상 1
@@ -34,9 +36,12 @@ except ImportError:
     pass  # python-dotenv 아직 설치 안 됐으면 그냥 os.environ만 사용
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
-# anon(publishable) key로는 robot_commands/robot_status에 UPDATE 권한이 없다
-# (팀 RLS 정책 확인됨) — 반드시 service_role key를 써야 한다.
-SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+# 처음엔 anon(publishable) key로 robot_commands/robot_status를 UPDATE할 수
+# 없어서 service_role key를 쓰려 했으나, 강사 피드백(브라우저 밖 신뢰된
+# 디바이스라도 secret key는 지양)에 따라 백경률이 anon 역할에 제한적인
+# UPDATE RLS 정책을 추가해줬다. 그래서 Pi도 웹과 동일하게 anon(public)
+# key만 사용한다.
+SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY")
 USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_KEY)
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
@@ -140,13 +145,19 @@ def _sb():
 
 
 def _init_supabase():
-    # 테이블 자체는 백경률이 Supabase 대시보드에서 미리 만들어둔다.
-    # 여기서는 robot_status의 기준 행(id=1)이 없으면 하나 만들어준다.
+    # 테이블과 robot_status의 기준 행(id=1)은 백경률이 이미 만들어뒀다.
+    # anon 역할은 robot_status에 UPDATE만 가능하고 INSERT 권한은 없으므로
+    # (팀 RLS 정책), 여기서 행을 새로 만들려고 시도하지 않는다 — 없으면
+    # 경고만 남기고 넘어간다(그 경우 update_status 호출들이 조용히
+    # 아무 일도 안 하게 되므로 원인 파악에 도움이 되도록 로그를 남긴다).
     existing = (
         _sb().table("robot_status").select("id").eq("id", _STATUS_ROW_ID).execute()
     )
     if not existing.data:
-        _update_status_supabase(state="idle", last_command=None)
+        print(
+            f"[store] 경고: robot_status에 id={_STATUS_ROW_ID} 행이 없습니다. "
+            "anon 권한으로는 새로 만들 수 없으니 백경률에게 확인하세요."
+        )
 
 
 def _add_command_supabase(command: str) -> dict:
@@ -191,14 +202,17 @@ def _get_status_supabase() -> dict:
 
 
 def _update_status_supabase(state: str, last_command: str = None) -> dict:
+    # upsert()가 아니라 update()를 쓴다: robot_status는 팀 계약상 id=1
+    # 행 하나만 이미 존재하고 새로 만들 일이 없는데, upsert는 내부적으로
+    # INSERT 권한도 요구해서(ON CONFLICT DO UPDATE) anon 역할(UPDATE만
+    # 허용됨)에서 권한 오류가 났었다.
     row = {
-        "id": _STATUS_ROW_ID,
         "state": state,
         "last_command": last_command,
         "updated_at": _now_iso(),
     }
-    _sb().table("robot_status").upsert(row).execute()
-    return row
+    _sb().table("robot_status").update(row).eq("id", _STATUS_ROW_ID).execute()
+    return {"id": _STATUS_ROW_ID, **row}
 
 
 # ---------------------------------------------------------------------------
