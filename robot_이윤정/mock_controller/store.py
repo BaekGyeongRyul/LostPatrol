@@ -201,6 +201,30 @@ def _get_status_supabase() -> dict:
     return {"state": "idle", "last_command": None, "updated_at": _now_iso()}
 
 
+STORAGE_BUCKET = "lost-item-photos"
+
+
+def _upload_capture_supabase(local_path: str) -> str:
+    """
+    로컬에 저장된 캡처 이미지를 Supabase Storage(lost-item-photos 버킷)에
+    올리고 공개 URL을 반환한다.
+
+    주의: 공식 문서(02_SUPABASE_DATA_CONTRACT.md)에는 이 버킷 업로드가
+    "anon 정책 없음 — service_role 필요"라고 되어 있었다. 지금은 팀이
+    robot_commands/robot_status와 같은 이유로 anon 전용 정책을 추가했을
+    수도 있어서 시험 삼아 시도한다 — 권한 에러가 나면 그대로 위로
+    올려서(raise) 호출하는 쪽에서 원인을 알 수 있게 한다.
+    """
+    filename = os.path.basename(local_path)
+    remote_path = f"captures/{filename}"
+    with open(local_path, "rb") as f:
+        data = f.read()
+    _sb().storage.from_(STORAGE_BUCKET).upload(
+        remote_path, data, {"content-type": "image/jpeg"}
+    )
+    return _sb().storage.from_(STORAGE_BUCKET).get_public_url(remote_path)
+
+
 def _update_status_supabase(state: str, last_command: str = None) -> dict:
     # upsert()가 아니라 update()를 쓴다: robot_status는 팀 계약상 id=1
     # 행 하나만 이미 존재하고 새로 만들 일이 없는데, upsert는 내부적으로
@@ -252,3 +276,13 @@ def update_status(state: str, last_command: str = None) -> dict:
     if USE_SUPABASE:
         return _update_status_supabase(state, last_command)
     return _update_status_json(state, last_command)
+
+
+def upload_capture(local_path: str) -> str:
+    """
+    캡처한 이미지를 업로드하고 URL(또는 로컬 경로)을 반환한다.
+    JSON 모드에서는 업로드할 곳이 없으니 로컬 경로를 그대로 돌려준다.
+    """
+    if USE_SUPABASE:
+        return _upload_capture_supabase(local_path)
+    return local_path
