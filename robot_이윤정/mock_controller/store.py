@@ -129,6 +129,34 @@ def _update_status_json(state: str, last_command: str = None) -> dict:
     return status
 
 
+SAFETY_FILE = os.path.join(DATA_DIR, "safety_status.json")
+EVENTS_FILE = os.path.join(DATA_DIR, "patrol_events.json")
+
+
+def _update_safety_status_json(**fields) -> dict:
+    current = _read_json(SAFETY_FILE, {})
+    current.update({k: v for k, v in fields.items() if v is not None})
+    current["updated_at"] = _now_iso()
+    _write_json(SAFETY_FILE, current)
+    return current
+
+
+def _add_patrol_event_json(event_type: str, location: str, message: str, severity: str) -> dict:
+    events = _read_json(EVENTS_FILE, [])
+    new_id = (max((e["id"] for e in events), default=0)) + 1
+    record = {
+        "id": new_id,
+        "event_type": event_type,
+        "location": location,
+        "message": message,
+        "severity": severity,
+        "created_at": _now_iso(),
+    }
+    events.append(record)
+    _write_json(EVENTS_FILE, events)
+    return record
+
+
 # ---------------------------------------------------------------------------
 # Supabase 백엔드
 # ---------------------------------------------------------------------------
@@ -239,6 +267,33 @@ def _update_status_supabase(state: str, last_command: str = None) -> dict:
     return {"id": _STATUS_ROW_ID, **row}
 
 
+_SAFETY_ROW_ID = 1  # safety_status도 robot_status와 같은 패턴 — id=1 고정 행 하나만 사용
+
+
+def _update_safety_status_supabase(**fields) -> dict:
+    row = {k: v for k, v in fields.items() if v is not None}
+    row["updated_at"] = _now_iso()
+    _sb().table("safety_status").update(row).eq("id", _SAFETY_ROW_ID).execute()
+    return {"id": _SAFETY_ROW_ID, **row}
+
+
+def _add_patrol_event_supabase(event_type: str, location: str, message: str, severity: str) -> dict:
+    result = (
+        _sb()
+        .table("patrol_events")
+        .insert(
+            {
+                "event_type": event_type,
+                "location": location,
+                "message": message,
+                "severity": severity,
+            }
+        )
+        .execute()
+    )
+    return result.data[0]
+
+
 # ---------------------------------------------------------------------------
 # 공개 API — controller.py / send_command.py는 이 함수들만 사용한다.
 # 백엔드가 JSON이든 Supabase든 여기서부터는 완전히 동일하게 동작한다.
@@ -286,3 +341,21 @@ def upload_capture(local_path: str) -> str:
     if USE_SUPABASE:
         return _upload_capture_supabase(local_path)
     return local_path
+
+
+def update_safety_status(**fields) -> dict:
+    """
+    safety_status(id=1 고정 행)을 갱신한다. fire_severity, flame_detected,
+    temperature_c, sound_severity, sound_level 등 필요한 필드만 넘기면 된다
+    (None인 필드는 무시됨 — 다른 담당자가 쓰는 필드를 덮어쓰지 않기 위함).
+    """
+    if USE_SUPABASE:
+        return _update_safety_status_supabase(**fields)
+    return _update_safety_status_json(**fields)
+
+
+def add_patrol_event(event_type: str, location: str, message: str, severity: str) -> dict:
+    """patrol_events에 새 이벤트 한 줄을 추가한다 (append-only 로그)."""
+    if USE_SUPABASE:
+        return _add_patrol_event_supabase(event_type, location, message, severity)
+    return _add_patrol_event_json(event_type, location, message, severity)

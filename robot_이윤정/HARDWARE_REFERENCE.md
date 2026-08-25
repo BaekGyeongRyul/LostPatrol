@@ -123,6 +123,56 @@ sudo nmcli --ask dev wifi connect <SSID>   # 연결 (비밀번호 물어봄)
 정할 수 있음 — 부팅 시 자동으로 특정 WiFi에 붙게 하려면 이 우선순위를
 높여주면 됨.
 
+## Arduino 안전센서 (FLAME + LM35DZ + 소음센서) — 별도 하드웨어
+
+Yahboom Raspbot과 무관한 **별개의 Arduino 보드**. 팀 대화방에서 결정된
+"Safety Monitoring" 기능용 — 화재/고온/큰소리를 감지해서 웹 Live Patrol
+페이지에 표시한다. 아직 실물 없음(주문 중), `robot_이윤정/mock_controller/safety_monitor.py`로 mock 구현 완료.
+
+데이터 흐름: `Arduino(FLAME + LM35DZ, Sound Sensor) → Raspberry Pi 5 → Supabase → Web`
+(source: `web_백경률/src/data/mockPatrolData.js` 주석)
+
+### Arduino → Pi 시리얼 프로토콜 (제안, USB, 9600 baud)
+
+1초에 한 줄씩 JSON 출력:
+```
+{"flame": 0, "temp_c": 26.4, "sound": 0}
+```
+- `flame`: 0/1, 불꽃 감지 여부
+- `temp_c`: LM35DZ 섭씨 온도 (아날로그 핀 → `(analogRead(pin) * 5.0 / 1024.0) * 100.0` 공식, 보드 기준전압에 따라 조정 필요)
+- `sound`: 0/1, 큰 소리 감지 여부 (아두이노 쪽에서 임계값 판단 후 전송)
+
+### Supabase 스키마 제안 (백경률에게 요청 필요 — 아직 테이블 없음)
+
+`safety_status` (단일 행, id=1 고정 — robot_status와 동일 패턴)
+```
+fire_severity    text      'normal' | 'warning' | 'danger'
+flame_detected   boolean
+temperature_c    numeric
+motion_severity  text      -- 조은수(Vision) 쪽에서 채움
+person_detected  boolean   -- 조은수(Vision) 쪽에서 채움
+sound_severity   text
+sound_level      text      'low' | 'high'
+updated_at       timestamptz
+```
+
+`patrol_events` (계속 쌓이는 로그, append-only)
+```
+id          bigint identity, PK
+event_type  text        예) patrol_start, motion_detected, loud_sound, fire_detected, status_normal
+location    text
+message     text
+severity    text
+created_at  timestamptz default now()
+```
+
+RLS는 robot_commands/robot_status와 동일한 패턴 요청 예정: anon에게
+`safety_status`는 UPDATE, `patrol_events`는 INSERT를 제한적으로 허용.
+
+### 임계값 (TBD, 실물 센서 캘리브레이션 후 팀 협의로 확정)
+
+- `TEMPERATURE_WARNING_C = 40`, `TEMPERATURE_DANGER_C = 60` (현재 `safety_monitor.py`의 자리표시자 값)
+
 ## 출처
 
 Yahboom 공식 GitHub 저장소(`YahboomTechnology/Raspbot`)의 튜토리얼 PDF:
