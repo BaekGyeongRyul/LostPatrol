@@ -34,9 +34,20 @@
 
 참고: anon 역할에는 DELETE 정책이 없어(INSERT/SELECT/UPDATE만 부여됨) 테스트 파일(`captures/verify_1787631493.jpg`, 827 bytes, 색상 테스트용 이미지)이 버킷에 남아있습니다 — 민감 정보 아니며, 정리하려면 대시보드 접근 권한이 있는 담당자가 수동 삭제하면 됩니다.
 
+## ✅ Arduino 안전센서(Safety Monitoring) 실제 Supabase 연동 검증 완료 (2026.08.25)
+
+`safety_monitor.py`(신규, `controller.py`와 별개 프로세스 — Arduino를 USB 시리얼로 읽어 `safety_status`/`patrol_events`에 반영) 구현 후, 백경률이 두 테이블과 anon RLS(safety_status: SELECT/UPDATE, patrol_events: SELECT/INSERT)를 생성해줘서 바로 실제 Supabase로 재검증했습니다.
+
+- `safety_status`(id=1 고정 행) 실시간 갱신 확인
+- 화재/소음 발생을 강제로 흉내내서 `patrol_events`에 `fire_detected` → `loud_sound` → `status_normal` 3건이 실제로 INSERT되는 것 확인 (상태가 바뀌는 순간에만 기록되는 로직도 함께 검증됨)
+- 에러 0건
+
+아직 Arduino 실물이 없어(주문 중) `safety_monitor.py`는 계속 mock 값으로 동작 중이며, 시리얼 포트(`SERIAL_PORT`)만 `.env`에 채우면 코드 수정 없이 실물 모드로 전환됩니다.
+
 ## ⬜ 남은 과제
 
 - 실제 Razbot 모터 제어 연동 (`YB_Pcb_Car.py` 라이브러리 연결 — `_move()` 내부 교체)
+- Arduino 실물 도착 후 시리얼 연동 + 온도/소음 임계값 캘리브레이션
 - 실제 라인트레이싱 센서 기반 자동순찰 (`_patrol_loop()` 내부 교체)
 - 실제 초음파 센서 기반 안전정지 (`_check_obstacle()` 내부 교체, 현재는 항상 False 반환하는 stub)
 
