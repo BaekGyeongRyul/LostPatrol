@@ -19,8 +19,10 @@ React + Vite 기반 LostPatrol 관리자 웹사이트를 구현했습니다 (`we
 
 중앙 데이터 허브로 Supabase(`uityxtduglbshnvkstvx`)를 구성했습니다. 아래 컬럼/정책은 실제 `docs/02_SUPABASE_DATA_CONTRACT.md`와 코드를 확인한 내용입니다.
 
-**주요 테이블**: `robot_commands`, `robot_status`, `lost_items`
+**주요 테이블**: `robot_commands`, `robot_status`, `safety_status`, `patrol_events`, `lost_items`
 **Storage**: `lost-item-photos` (public bucket)
+
+담당자별 코드가 서로 다른 컬럼명·상태값을 쓰지 않도록, 위 테이블 구조와 anon 권한 범위를 공통 Data Contract로 관리하며 신규 테이블을 추가할 때도 동일한 원칙(테이블별 최소 권한, DELETE 미부여)을 그대로 적용합니다.
 
 ### robot_commands
 
@@ -41,9 +43,31 @@ React + Vite 기반 LostPatrol 관리자 웹사이트를 구현했습니다 (`we
 
 ✅ 완료
 
+### safety_status (신규, 2026.08.25)
+
+이윤정 담당자의 Arduino 안전센서(화재/온도/소음) 데이터를 저장하기 위해 신규 생성했습니다. `robot_status`와 동일하게 단일 행(id=1)을 계속 UPDATE하는 구조입니다.
+
+컬럼: `id, fire_severity(기본값 normal), flame_detected(기본값 false), temperature_c, motion_severity(기본값 normal), person_detected(기본값 false), sound_severity(기본값 normal), sound_level(기본값 low), updated_at`
+
+anon 권한: SELECT, UPDATE(DELETE 없음). RLS 활성화 후 실제 anon key REST 호출로 SELECT(200)/UPDATE(200)까지 확인했습니다.
+
+✅ 완료
+
+### patrol_events (신규, 2026.08.25)
+
+화재/고온/큰 소리 등 안전 이벤트가 발생할 때마다 계속 누적 기록하는 append-only 로그 테이블입니다.
+
+컬럼: `id(identity, PK), event_type, location, message, severity, created_at`
+
+anon 권한: SELECT, INSERT(DELETE 없음). RLS 활성화 후 실제 anon key REST 호출로 SELECT(200)/INSERT(201)까지 확인했습니다. 테이블 생성 시 Postgres 기본 권한으로 anon에 자동 포함된 TRUNCATE/TRIGGER/REFERENCES 권한은 불필요하다고 판단해 즉시 회수했습니다.
+
+✅ 완료
+
 ### lost_items
 
-테스트용 우산 데이터를 DB에 넣었을 때 실제 웹 Lost Items 화면에서 우산 / 위치 / confidence / 상태가 표시되는 것을 확인했습니다. 웹에서 "반환 완료"를 선택했을 때 `status`가 `resolved`로 실제 UPDATE되는 것도 확인했습니다.
+테스트용 우산 데이터를 DB에 넣었을 때 실제 웹 Lost Items 화면에서 우산 / 위치 / confidence / 상태가 표시되는 것을 확인했습니다. 웹에서 "반환 완료"를 선택했을 때 `status`가 `resolved`로 실제 UPDATE되는 것도 확인했습니다. anon key로 실제 INSERT도 가능한 것을 확인했습니다.
+
+통합 테스트 과정에서 생성된 테스트 행(id=2, "테스트용 항목입니다")은 시연용 DB 상태를 정돈하기 위해 삭제했습니다(2026.08.25 15:06).
 
 ✅ 완료 (Web 표시/상태변경 기준. Vision 파이프라인의 자동 등록은 [05. 조은수 담당](05_조은수_Vision_YOLO.md) 참고)
 
@@ -55,17 +79,20 @@ React + Vite 기반 LostPatrol 관리자 웹사이트를 구현했습니다 (`we
 
 | 테이블 | 확인된 anon 권한 |
 |---|---|
-| robot_commands | SELECT, INSERT, **UPDATE** (신규 추가) |
-| robot_status | SELECT, **UPDATE** (신규 추가) |
-| lost_items | SELECT, UPDATE |
+| robot_commands | SELECT, INSERT, UPDATE |
+| robot_status | SELECT, UPDATE |
+| safety_status | SELECT, UPDATE (신규) |
+| patrol_events | SELECT, INSERT (신규) |
+| lost_items | SELECT, INSERT, UPDATE |
+| lost-item-photos (Storage) | SELECT, INSERT, UPDATE |
 
-DELETE는 개발 중 실수 방지를 위해 기본적으로 사용하지 않습니다.
+모든 테이블/버킷에 DELETE는 개발 중 실수 방지를 위해 기본적으로 부여하지 않는 방향을 유지하고 있습니다. 이 표를 팀 공통 Data Contract의 권한 기준으로 사용합니다.
 
 이윤정 담당자가 겪었던 `robot_commands`/`robot_status` UPDATE RLS 오류는 위 정책 추가 후 해결되어, 실제 Supabase 연동(anon key 기준)에 성공했습니다.
 
-✅ 완료 (robot_commands / robot_status anon UPDATE)
+✅ 완료
 
-**⚠️ 팀 내 확인 필요**: `lost_items`에 대한 anon INSERT 권한 확장 여부는 `docs/02_SUPABASE_DATA_CONTRACT.md`에는 아직 "AI 파이프라인 INSERT는 anon 정책에 없고 service_role 필요"로 남아 있고, Vision 파이프라인 코드가 아직 저장소에 없어 실제 INSERT 테스트도 되지 않았습니다. Vision 연동 전에 anon INSERT로 갈지 service_role로 갈지 팀 협의가 필요합니다.
+`lost_items`에 대한 anon INSERT 권한은 이윤정 담당자의 실제 테스트로 정상 동작이 확인되어, Vision 파이프라인도 별도 요청 없이 바로 사용 가능합니다.
 
 ## 6-4. Supabase MCP + Claude Code
 

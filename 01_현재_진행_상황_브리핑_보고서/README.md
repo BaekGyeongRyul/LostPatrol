@@ -4,20 +4,20 @@
 
 ## 현재 한 줄 상태
 
-Web–Supabase–Robot(Mock Controller) 간 기본 소프트웨어 연동은 실제 DB 데이터로 확인되었으며, 현재 Vision 3종 모델 학습·로컬 추론과 실제 하드웨어(Razbot)·카메라·Storage 이미지 업로드 통합을 진행 중입니다. 실제 로봇 하드웨어와 Vision 파이프라인까지 포함한 최종 통합은 아직 완료 전 단계입니다.
+Web–Supabase–Robot Controller 및 Safety Monitor의 기본 데이터 연동과 Vision 3종(가방/우산/물병) 객체 분류 모델 구축까지 완료되었으며, 현재 실제 Razbot 하드웨어·카메라·YOLO·자동순찰을 하나의 시스템으로 통합하는 단계에 있습니다.
 
 ## 담당별 현재 상태
 
 **백경률** — Web / Supabase / GitHub / Pages / Data Contract
-✅ Web 관제 대시보드 구현, Supabase 연동, GitHub 협업 구조, GitHub Pages 배포, Data Contract 문서화
+✅ Web 관제 대시보드 구현, Supabase 연동, GitHub 협업 구조, GitHub Pages 배포, Data Contract 문서화, 안전센서용 신규 테이블(`safety_status`/`patrol_events`) 구축(2026.08.25)
 
 **이윤정** — Raspberry Pi / Razbot
-✅ Mock Robot Controller, Supabase 연동(anon key), Heartbeat, 순찰 상태머신, 버그 3건 수정, Storage RLS 정책 해결(2026.08.25)
-🔄 Storage 실제 업로드 결과 재검증, 실제 Razbot 하드웨어 연동
+✅ Mock Robot Controller, Supabase 연동(anon key), Heartbeat, 순찰 상태머신, 버그 3건 수정, Storage 실제 업로드 검증, Safety Monitor ↔ Supabase 연동 검증(2026.08.25)
+🔄 실제 Razbot 하드웨어(모터/라인트레이싱/초음파/카메라) 연동
 
 **조은수** — Vision / YOLO
-✅ 기술 스택 결정(YOLO+OpenCV, Roboflow), 가방 데이터 수집·라벨링, 가방 1종 YOLO 학습
-🔄 로컬 추론 전환, 우산·물병 데이터 수집, 3종 모델 학습, Supabase 연동
+✅ 기술 스택 결정(YOLO+OpenCV, Roboflow, Bounding Box), 가방/우산/물병 3종 클래스 구별 가능한 모델 구축(담당자 보고 기준, 2026.08.25)
+🔄 Razbot Camera 실제 연동, Raspberry Pi 추론, 분실물 후보 판정 로직, Supabase(lost_items/Storage) 자동 연동
 
 ## 바로가기
 
