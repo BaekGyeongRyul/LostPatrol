@@ -307,7 +307,17 @@ def run():
         print(f"[MOCK ROBOT] 명령 파일 위치: {store.COMMANDS_FILE}")
 
     while True:
-        for record in store.get_pending_commands():
+        try:
+            pending = store.get_pending_commands()
+        except Exception as exc:
+            # 네트워크 순간 끊김/Supabase 일시 장애 등으로 폴링 자체가
+            # 실패해도 프로그램 전체가 죽으면 안 된다 — 로그만 남기고
+            # 다음 주기에 다시 시도한다. (heartbeat, mark_command_done과
+            # 같은 "죽지 않고 계속 시도" 원칙을 폴링 루프에도 적용)
+            print(f"[MOCK ROBOT] 명령 조회 실패(다음 주기에 재시도): {exc}")
+            pending = []
+
+        for record in pending:
             print(f"\n[MOCK ROBOT] 새 명령 수신: id={record['id']} command={record['command']}")
             _handle_command(record)
         time.sleep(1)  # 1초마다 새 명령이 있는지 확인 (polling)
