@@ -8,12 +8,15 @@
 
   배선 (실제 연결 기준, 2026.08.26):
     FLAME 모듈   VCC→5V, GND→GND, DO→A0
-    소음센서 모듈 VCC→5V, GND→GND, DO→A1
-    LM35DZ       VCC→5V, GND→GND, OUT→A2
+    소음센서 모듈 VCC→5V, GND→GND, DO→A2
+    LM35DZ       VCC→5V, GND→GND, OUT→A1
 
   참고: A0~A5는 아날로그 전용이 아니라 digitalRead()/digitalWrite()도 그대로
-  지원하는 핀이라, FLAME/소음센서의 디지털 출력(DO)을 A0/A1에 연결해도
-  문제없다.
+  지원하는 핀이라, FLAME/소음센서의 디지털 출력(DO)을 여기 연결해도 문제없다.
+  (첫 실물 테스트에서 소음/LM35DZ 핀이 코드와 반대로 배선돼있어서 temp_c가
+  항상 499.5(ADC 최댓값)로, sound가 항상 0으로 고정되는 증상이 있었음 —
+  소음센서의 디지털 HIGH를 온도핀이 읽고, LM35DZ의 낮은 아날로그 전압을
+  소음핀이 읽어서 생긴 문제. 아래 핀 번호를 실제 배선에 맞게 수정함.)
 
   주의: 대부분의 IR 불꽃센서 모듈은 불꽃 감지 시 DO가 LOW로 떨어진다.
   실제로 업로드해서 시리얼 모니터로 확인했을 때 반대로 동작하면(평소 0,
@@ -23,8 +26,8 @@
 */
 
 const int FLAME_PIN = A0;  // 디지털로 읽음 (DO)
-const int SOUND_PIN = A1;  // 디지털로 읽음 (DO)
-const int TEMP_PIN = A2;   // 아날로그 (LM35DZ)
+const int SOUND_PIN = A2;  // 디지털로 읽음 (DO)
+const int TEMP_PIN = A1;   // 아날로그 (LM35DZ)
 
 void setup() {
   Serial.begin(9600);
