@@ -37,6 +37,9 @@
        안정화.
   6차: LCD1602(I2C) 로봇 얼굴 표시 추가 — flame/sound 상태에 따라 평온한
        얼굴/놀란 얼굴로 전환. I2C 주소는 스캐너로 0x27 확인.
+  7차: 대비 트리머가 뻑뻑해서 잘 안 돌아갔으나 칼로 돌려서 해결. 평온한
+       얼굴이 계속 같은 모양이라 밋밋하다는 피드백으로, 눈 깜빡임
+       애니메이션 추가(약 6초에 한 번씩 "^_^" → "-_-" → 다시 "^_^").
 */
 
 #include <Wire.h>
@@ -57,6 +60,10 @@ const int SAMPLE_DELAY_MS = 5; // 샘플 사이 간격
 // 얼굴 상태가 바뀔 때만 LCD를 다시 그린다 (매초 다시 그리면 화면이 깜빡임).
 enum Face { FACE_NORMAL, FACE_FIRE, FACE_LOUD };
 Face lastFace = FACE_NORMAL;
+int lastBlink = -1;   // 평온한 얼굴일 때만 쓰는 애니메이션 프레임 (0=뜸, 1=깜빡임)
+int frameCounter = 0; // loop() 한 바퀴마다 증가 — 대략 1초에 1씩 늘어남
+
+const int BLINK_EVERY_N_FRAMES = 6;  // 약 6초에 한 번씩 눈 깜빡
 
 void setup() {
   Serial.begin(9600);
@@ -64,7 +71,7 @@ void setup() {
 
   lcd.init();
   lcd.backlight();
-  showFace(FACE_NORMAL, true);  // 시작하자마자 평온한 얼굴부터 표시
+  showFace(FACE_NORMAL, true, 0);  // 시작하자마자 평온한 얼굴부터 표시
 }
 
 // 여러 번 읽어서 평균낸 값을 돌려준다 — analogRead() 한 번만 쓰면 순간
@@ -80,9 +87,13 @@ int readAverage(int pin) {
 
 // 16x2 LCD라 커스텀 문자 없이 텍스트만으로 표정을 표현한다.
 // force가 true면 상태가 안 바뀌었어도 강제로 다시 그린다(초기 표시용).
-void showFace(Face face, bool force) {
-  if (face == lastFace && !force) return;  // 상태 그대로면 다시 그리지 않음(깜빡임 방지)
+// blink는 FACE_NORMAL일 때만 의미 있음(0=눈 뜸, 1=눈 깜빡).
+void showFace(Face face, bool force, int blink) {
+  // 얼굴 종류나 깜빡임 프레임 둘 중 하나라도 바뀌었을 때만 다시 그린다
+  // (매초 다시 그리면 화면이 깜빡거려서, 실제로 바뀔 때만 그림).
+  if (face == lastFace && blink == lastBlink && !force) return;
   lastFace = face;
+  lastBlink = blink;
 
   lcd.clear();
   switch (face) {
@@ -101,7 +112,7 @@ void showFace(Face face, bool force) {
     case FACE_NORMAL:
     default:
       lcd.setCursor(6, 0);
-      lcd.print("^_^");
+      lcd.print(blink ? "-_-" : "^_^");  // 깜빡이는 순간만 눈 감은 모양으로
       lcd.setCursor(2, 1);
       lcd.print("LostPatrol");
       break;
@@ -129,12 +140,15 @@ void loop() {
 
   // 우선순위: 불꽃 > 큰 소리 > 평온. (둘 다 감지되면 더 위험한 불꽃 표정 우선)
   if (flame) {
-    showFace(FACE_FIRE, false);
+    showFace(FACE_FIRE, false, 0);
   } else if (sound) {
-    showFace(FACE_LOUD, false);
+    showFace(FACE_LOUD, false, 0);
   } else {
-    showFace(FACE_NORMAL, false);
+    // 평온한 상태일 때만 몇 초에 한 번씩 눈을 깜빡여서 살아있는 느낌을 준다.
+    int blink = (frameCounter % BLINK_EVERY_N_FRAMES == 0) ? 1 : 0;
+    showFace(FACE_NORMAL, false, blink);
   }
+  frameCounter++;
 
   delay(900);  // readAverage()가 이미 (10*5=50ms)*2 정도 쓰니 대략 1초 주기 맞춤
 }
