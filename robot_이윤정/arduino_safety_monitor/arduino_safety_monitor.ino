@@ -44,6 +44,10 @@
        교체함 — RoboEyes 같은 그래픽 라이브러리는 OLED 전용이라 LCD1602엔
        못 쓰지만, HD44780 LCD도 8개까지 커스텀 문자를 만들 수 있어서 이
        방식으로 비슷한 효과를 냄.
+  8차: "옆도 보는 모션" 추가 요청 — 눈 모양 자체(픽셀)를 좌우로 다르게
+       그리는 대신, 두 눈 문자를 표시하는 커서 위치를 좌우로 1칸씩
+       옮겼다가 되돌리는 방식으로 "곁눈질" 느낌을 구현함(간단하면서도
+       16x2 화면에서 눈에 띄게 보임).
 */
 
 #include <Wire.h>
@@ -102,12 +106,13 @@ const int SAMPLE_DELAY_MS = 5; // 샘플 사이 간격
 // 얼굴 상태가 바뀔 때만 LCD를 다시 그린다 (매초 다시 그리면 화면이 깜빡임).
 enum Face { FACE_NORMAL, FACE_FIRE, FACE_LOUD };
 Face lastFace = FACE_NORMAL;
-int lastEyeFrame = -1; // 평온한 얼굴일 때만 쓰는 눈 애니메이션 프레임(0/1/2)
-int frameCounter = 0;  // loop() 한 바퀴마다 증가 — 대략 1초에 1씩 늘어남
+int lastEyeFrame = -1;  // 평온한 얼굴일 때만 쓰는 눈 애니메이션 프레임(0/1/2)
+int lastEyeOffset = 0;  // 눈 커서 위치 좌우 오프셋(-1=왼쪽, 0=중앙, 1=오른쪽)
+int frameCounter = 0;   // loop() 한 바퀴마다 증가 — 대략 1초에 1씩 늘어남
 
-// 눈 깜빡임 주기: BLINK_CYCLE_LEN(초) 중 마지막 두 프레임에서만 살짝
-// 감았다가 다시 뜬다 (반쯤감김 → 완전히감음 → 다음 바퀴에 다시 뜸).
-const int BLINK_CYCLE_LEN = 8;
+// 애니메이션 한 바퀴(대략 초 단위) 길이. 이 안에서 눈 깜빡임 한 번,
+// 좌우 곁눈질 한 번씩 섞어서 보여준다.
+const int ANIM_CYCLE_LEN = 16;
 
 void setup() {
   Serial.begin(9600);
@@ -118,7 +123,7 @@ void setup() {
   lcd.createChar(EYE_OPEN, eyeOpenBitmap);
   lcd.createChar(EYE_HALF, eyeHalfBitmap);
   lcd.createChar(EYE_CLOSED, eyeClosedBitmap);
-  showFace(FACE_NORMAL, true, EYE_OPEN);  // 시작하자마자 평온한(눈 뜬) 얼굴부터 표시
+  showFace(FACE_NORMAL, true, EYE_OPEN, 0);  // 시작하자마자 평온한(눈 뜬, 중앙) 얼굴부터 표시
 }
 
 // 여러 번 읽어서 평균낸 값을 돌려준다 — analogRead() 한 번만 쓰면 순간
@@ -133,13 +138,15 @@ int readAverage(int pin) {
 }
 
 // force가 true면 상태가 안 바뀌었어도 강제로 다시 그린다(초기 표시용).
-// eyeFrame은 FACE_NORMAL일 때만 의미 있음(EYE_OPEN/EYE_HALF/EYE_CLOSED).
-void showFace(Face face, bool force, int eyeFrame) {
-  // 얼굴 종류나 눈 프레임 둘 중 하나라도 바뀌었을 때만 다시 그린다
+// eyeFrame/eyeOffset은 FACE_NORMAL일 때만 의미 있음.
+// eyeOffset: -1=왼쪽을 봄, 0=정면, 1=오른쪽을 봄 (커서 위치를 옮겨서 표현)
+void showFace(Face face, bool force, int eyeFrame, int eyeOffset) {
+  // 얼굴 종류/눈 프레임/좌우 오프셋 중 하나라도 바뀌었을 때만 다시 그린다
   // (매초 다시 그리면 화면이 깜빡거려서, 실제로 바뀔 때만 그림).
-  if (face == lastFace && eyeFrame == lastEyeFrame && !force) return;
+  if (face == lastFace && eyeFrame == lastEyeFrame && eyeOffset == lastEyeOffset && !force) return;
   lastFace = face;
   lastEyeFrame = eyeFrame;
+  lastEyeOffset = eyeOffset;
 
   lcd.clear();
   switch (face) {
@@ -157,10 +164,10 @@ void showFace(Face face, bool force, int eyeFrame) {
       break;
     case FACE_NORMAL:
     default:
-      // 커스텀 픽셀 눈 두 개(같은 문자 재사용, 좌우 같이 깜빡임)
-      lcd.setCursor(6, 0);
+      // 커스텀 픽셀 눈 두 개(같은 문자 재사용, 좌우 같이 깜빡이고 같이 곁눈질함)
+      lcd.setCursor(6 + eyeOffset, 0);
       lcd.write(byte(eyeFrame));
-      lcd.setCursor(9, 0);
+      lcd.setCursor(9 + eyeOffset, 0);
       lcd.write(byte(eyeFrame));
       lcd.setCursor(3, 1);
       lcd.print("LostPatrol");
@@ -189,23 +196,27 @@ void loop() {
 
   // 우선순위: 불꽃 > 큰 소리 > 평온. (둘 다 감지되면 더 위험한 불꽃 표정 우선)
   if (flame) {
-    showFace(FACE_FIRE, false, 0);
+    showFace(FACE_FIRE, false, 0, 0);
   } else if (sound) {
-    showFace(FACE_LOUD, false, 0);
+    showFace(FACE_LOUD, false, 0, 0);
   } else {
-    // 평온한 상태일 때만 주기적으로 눈을 깜빡여서 살아있는 느낌을 준다.
-    // 한 바퀴(BLINK_CYCLE_LEN프레임) 중 마지막 2프레임에서만 반쯤감김→감음,
-    // 나머지는 뜬눈 — 실제 눈 깜빡임처럼 짧게 감았다가 다시 뜨는 느낌.
-    int pos = frameCounter % BLINK_CYCLE_LEN;
-    int eyeFrame;
-    if (pos == BLINK_CYCLE_LEN - 2) {
-      eyeFrame = EYE_HALF;
-    } else if (pos == BLINK_CYCLE_LEN - 1) {
-      eyeFrame = EYE_CLOSED;
-    } else {
-      eyeFrame = EYE_OPEN;
+    // 평온한 상태일 때만 주기적으로 눈을 깜빡이거나 좌우를 살짝 봐서
+    // 살아있는 느낌을 준다. ANIM_CYCLE_LEN(대략 16초) 한 바퀴 안에
+    // 깜빡임 한 번, 왼쪽 곁눈질 한 번, 오른쪽 곁눈질 한 번을 섞는다.
+    int pos = frameCounter % ANIM_CYCLE_LEN;
+    int eyeFrame = EYE_OPEN;
+    int eyeOffset = 0;
+
+    if (pos == 6) {
+      eyeFrame = EYE_HALF;                 // 깜빡이기 시작
+    } else if (pos == 7) {
+      eyeFrame = EYE_CLOSED;               // 완전히 감음
+    } else if (pos == 11 || pos == 12) {
+      eyeOffset = -1;                      // 왼쪽을 살짝 봄
+    } else if (pos == 14 || pos == 15) {
+      eyeOffset = 1;                       // 오른쪽을 살짝 봄
     }
-    showFace(FACE_NORMAL, false, eyeFrame);
+    showFace(FACE_NORMAL, false, eyeFrame, eyeOffset);
   }
   frameCounter++;
 
