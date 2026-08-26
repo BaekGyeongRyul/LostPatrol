@@ -57,14 +57,24 @@ Razbot 실물 배송·조립 완료 후 당일 아래까지 전부 진행했습�
 7. **실제 모터 동작 실물 테스트 성공**: `Car_Run()`(전진), `Car_Spin_Left()`(제자리 좌회전 — 실제로 제자리에서 도는 것 육안 확인) 둘 다 정상 동작
 8. **`controller.py`의 `_move()`를 실제 모터 제어로 교체 완료**: `YB_Pcb_Car` import 성공 여부로 실물/mock 모드를 자동 분기하도록 구현 — 노트북(Windows)에서는 여전히 mock으로 안전하게 테스트 가능하고, 로봇(라즈베리파이)에서는 실제로 움직임. `forward/backward`는 `Car_Run`/`Car_Back`, **`left/right`(제자리 회전)는 `Car_Spin_Left`/`Car_Spin_Right`**로 매핑(`Car_Left`/`Car_Right`는 곡선주행이라 계약과 안 맞아 사용 안 함)
 
+## ✅ 웹→Supabase→실물 로봇 엔드투엔드 + 실제 카메라 연동 완료 (2026.08.26)
+
+같은 날 이어서 아래까지 완료했습니다.
+
+- **웹 Forward 버튼 → 실물 로봇 이동 엔드투엔드 확인**: 배포된 웹사이트에서 Forward 클릭 → 실제로 로봇이 움직이는 것 확인 (`03_INTEGRATION_TEST_CHECKLIST.md` 1번 항목 통과)
+- **회전 시간 튜닝**: `left`/`right`가 1.5초 기준이라 실물에서 거의 한 바퀴 넘게 돌던 문제 발견 → 제자리회전 전용 `SPIN_DURATION_SEC(0.3초)`로 분리해 조금씩만 돌도록 수정
+- **Razbot 카메라(CSI) 실제 연동**: `cv2.VideoCapture()`로는 프레임을 못 읽는 것 확인(CSI 카메라라 libcamera 스택 필요, `rp1-cfe`/`pispbe` 드라이버). `picamera2`는 시스템에 있으나 numpy 바이너리 호환성 문제로 깨져있어, 대신 `rpicam-still` 커맨드라인 도구를 서브프로세스로 호출해 JPEG를 받는 방식으로 우회 구현. `_grab_frame()`이 `rpicam-still` 존재 여부로 실물/웹캠 자동 분기
+- **촬영→저장→업로드 엔드투엔드 실물 검증**: 실제 카메라로 촬영(205KB 진짜 사진) → 로컬 저장 → `upload_capture()`로 Supabase Storage 업로드 → 공개 URL로 실제 이미지 확인까지 전부 성공
+- **배터리 이슈 대응**: 리튬 배터리 방전으로 모터 테스트 불가 시, 라즈베리파이 USB-C 단독 전원으로 부팅해 카메라/소프트웨어 테스트는 계속 진행 가능함을 확인(모터는 배터리 별도 전원이라 USB-C만으로는 동작 안 함 — 실물로 재확인)
+
 ## ⬜ 남은 과제
 
-- 실제 모터 연동 로봇 위에서 Supabase 명령(웹 버튼) 왕복까지 엔드투엔드 테스트
 - Arduino 실물 도착 후 시리얼 연동 + 온도/소음 임계값 캘리브레이션
 - 실제 라인트레이싱 센서 기반 자동순찰 (`_patrol_loop()` 내부 교체)
 - 실제 초음파 센서 기반 안전정지 (`_check_obstacle()` 내부 교체, 현재는 항상 False 반환하는 stub)
-- Razbot 카메라 실제 연동 (`_capture()`를 Razbot 카메라 입력으로 교체, 조은수 Vision 파이프라인과 연결)
 - `raspbot.py` 자동시작 영구 비활성화 (매 부팅마다 수동 kill 중)
+- 로봇 배터리 재충전 후 모터 관련 나머지 테스트(Right/Stop 웹 경로) 마무리
+- 조은수 Vision 코드와 실제 연결 (카메라 입력 파이프라인은 이제 준비 완료)
 
 ## ⚠️ 팀 내 확인 필요
 
