@@ -241,11 +241,15 @@ def _grab_frame_rpicam():
     카메라가 실제로 거꾸로 장착돼 있어서(실물 테스트로 확인, 2026.08.26)
     --rotation 180 없이 찍으면 위아래가 뒤집힌 사진이 나온다. 이게 YOLO
     오탐지(물병을 backpack으로 잘못 판단)의 원인 중 하나로 의심돼서 추가함.
+
+    기본 화이트밸런스(auto)로 찍으면 사진 전체가 초록/청록빛으로 심하게
+    틀어져 나오는 것도 실물 테스트로 발견함 — --awb daylight로 바꾸니
+    훨씬 자연스러운 색으로 나옴 (2026.08.26).
     """
     try:
         result = subprocess.run(
             [RPICAM_STILL, "-o", "-", "-t", "1000", "-n", "--rotation", "180",
-             "--width", "1296", "--height", "972"],
+             "--awb", "daylight", "--width", "1296", "--height", "972"],
             capture_output=True, timeout=15, check=True,
         )
         arr = np.frombuffer(result.stdout, dtype=np.uint8)
