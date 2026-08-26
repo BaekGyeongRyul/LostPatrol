@@ -97,6 +97,17 @@ Razbot 실물 배송·조립 완료 후 당일 아래까지 전부 진행했습�
 - 장애물 없는 상태로 재시도 → 웹 **PATROL STOP** 클릭 → 정상 종료 확인
 - 이로써 `03_INTEGRATION_TEST_CHECKLIST.md` 1~7, 9~11번 전부 실물로 검증 완료. 남은 건 8번(heartbeat 끊김→OFFLINE 표시, 15초) 뿐.
 
+## ✅ 아두이노 안전센서(FLAME/LM35DZ/소음) 실물 시리얼 연동 완료 (2026.08.26)
+
+`safety_monitor.py`가 mock이 아니라 실제 아두이노 시리얼 데이터를 읽어서 Supabase(`safety_status`)에 반영하는 것까지 확인. 스케치(`robot_이윤정/arduino_safety_monitor/arduino_safety_monitor.ino`)를 새로 작성하고, 배선 확정 전까지 여러 단계로 디버깅함:
+
+1. FLAME은 비교기 내장 모듈이 아니라 포토트랜지스터+저항 직접 구성 회로라 `digitalRead()`가 아니라 `analogRead()` + 임계값(실측으로 5 확정) 방식으로 변경
+2. 소음/LM35DZ 핀이 실제 배선과 반대로 코드에 들어가 있어서 온도가 항상 ADC 최댓값(499.5도)으로 나오던 문제 → 실제 배선(A0=FLAME, A1=LM35DZ, A2=소음)에 맞춰 수정
+3. 소음센서는 트리머로 감도 캘리브레이션(평소 0, 큰 소리에만 1)
+4. LM35DZ 값이 5.9~73.7도로 튀는 노이즈 → 여러 번 읽어 평균내는 방식으로 안정화
+5. Pi 연결 초반 계속 `\x00` 널 바이트만 읽히는 문제 → ModemManager(포트 자동 간섭 서비스) 비활성화 + 시리얼 오픈 직후 대기/버퍼 flush 추가로 시도했으나 계속 재현 → 최종 원인은 **USB 케이블 접촉 불량**이었음(케이블 흔들자 TX LED가 바로 정상적으로 깜빡이기 시작)
+6. 라이터로 FLAME 반응 테스트 → Supabase `safety_status`에 실시간으로 `fire_severity=danger`, `temperature_c=170.4` 등 실제 값 반영되는 것을 직접 쿼리로 재확인
+
 ## ⬜ 남은 과제
 
 - Arduino 실물 도착 후 시리얼 연동 + 온도/소음 임계값 캘리브레이션
