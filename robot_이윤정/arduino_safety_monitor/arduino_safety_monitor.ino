@@ -1,6 +1,6 @@
 /*
   arduino_safety_monitor.ino — LostPatrol 안전센서(FLAME + LM35DZ + 소음센서)
-  + LCD1602(I2C, 텍스트 상태 표시) + OLED(I2C, RoboEyes 애니메이션 얼굴)
+  + LCD1602(I2C, 텍스트 상태 표시) + ESP32로 보내는 flame/sound 신호 핀
 
   FLAME/온도/소음 값을 1초에 한 줄씩 JSON으로 시리얼 출력한다.
   Raspberry Pi의 robot_이윤정/mock_controller/safety_monitor.py가 이 형식을
@@ -12,16 +12,15 @@
     소음센서 모듈(비교기 내장, DO 있음)  +→5V, G→GND, DO→A2
     LM35DZ (평평한 면 기준 왼쪽부터)     왼쪽(VCC)→5V, 가운데(OUT)→A1, 오른쪽(GND)→GND
     LCD1602 I2C 모듈                    VCC→5V, GND→GND, SDA→A4, SCL→A5 (주소 0x27)
-    OLED(SSD1306, I2C)                  VDD→5V, GND→GND, SCK→A5, SDA→A4 (주소 0x3C)
-      → LCD랑 OLED는 같은 I2C 버스(A4/A5)에 주소만 다르게 병렬로 같이 연결.
+    ESP32(별도 보드, 얼굴용 OLED 담당)  D8→ESP32 GPIO(flame신호), D9→ESP32 GPIO(sound신호),
+                                        GND→ESP32 GND(공통 기준전압 필수)
 
-  라이브러리: "LiquidCrystal I2C", "Adafruit GFX Library", "Adafruit SSD1306",
-  "FluxGarage RoboEyes"를 Arduino IDE 라이브러리 관리자에서 설치.
+  라이브러리: "LiquidCrystal I2C"를 Arduino IDE 라이브러리 관리자에서 설치.
 
   참고: A0~A5는 아날로그 전용이 아니라 digitalRead()/digitalWrite()도 그대로
   지원하는 핀이다.
 
-  ## 디버깅 이력 (2026.08.26)
+  ## 디버깅 이력 (2026.08.26~27)
   1차: 소음/LM35DZ 핀이 코드와 반대로 배선돼있어서 temp_c가 항상
        499.5(ADC 최댓값)로, sound가 항상 0으로 고정됨 → 실제 배선(A1/A2)에
        맞춰 코드 수정으로 해결.
@@ -34,43 +33,34 @@
        것까지 확인)로 5로 낮춰서 정상 동작 확인함.
   4차: 소음센서(DO만 있는 모듈)는 트리머로 감도 조정해서 평소 0, 큰 소리에만
        1로 반응하도록 캘리브레이션 완료.
-  5차: temp_c가 5.9~73.7도로 튀는 현상 발견 — 한 번의 analogRead() 값을
+  5차: temp_c가 5.9~73.7도로 튀는 현상 발견 → 한 번의 analogRead() 값을
        그대로 쓰던 걸 여러 번 읽어 평균 내는 방식(readAverage())으로 바꿔서
        안정화.
-  6~8차: LCD1602 위에 텍스트/커스텀 픽셀 문자로 눈 깜빡임+곁눈질 애니메이션을
-       직접 구현했었으나(커밋 이력 참고), 결국 LCD는 텍스트 전용으로 쓰고
-       진짜 애니메이션은 OLED+RoboEyes 라이브러리로 분리하기로 함(2026.08.27).
-  9차: RoboEyes는 부드럽게 움직이려면 update()를 자주(매 루프) 호출해야
-       하는데, 기존 loop()는 센서 평균값 계산(readAverage, 딜레이 포함)
-       때문에 1초에 한 바퀴만 돎 → millis() 기반으로 "센서 읽기는 1초마다,
-       RoboEyes.update()는 매 루프"로 구조를 분리해서 애니메이션이
-       끊기지 않게 함.
-  10차: 컴파일 에러로 확인된 사실 — RoboEyes는 템플릿 클래스라 클래스명이
-       소문자 roboEyes가 아니라 대문자 RoboEyes이고, 실제 Adafruit_SSD1306
-       객체를 만들어서 생성자에 참조로 넘겨야 함(RoboEyes<Adafruit_SSD1306>
-       eyes(display);). display.begin()도 별도로 먼저 호출해야 함.
+  6~9차: LCD1602+OLED(SSD1306)+RoboEyes를 전부 우노 한 대에 같이 올리려고
+       시도했으나(커밋 이력 참고), display.begin()이 계속 실패함.
+  10차: 남은 메모리를 출력해서 확인해보니 1058바이트 — OLED 프레임버퍼만
+       1024바이트라 malloc이 실패하는 게 확정됨(우노 RAM은 총 2KB뿐).
+       결론: 우노+LCD+OLED+RoboEyes 조합은 메모리가 근본적으로 부족.
+  11차: 여분으로 있던 ESP32(RAM 훨씬 넉넉함)로 OLED+RoboEyes를 통째로
+       분리하기로 함(2026.08.27). 우노는 원래 하던 센서+LCD만 담당하고,
+       flame/sound 판정 결과만 디지털 신호 2개(D8/D9)로 ESP32에 넘겨준다
+       (WiFi나 라즈베리파이 경유 없이 우노↔ESP32 직결 — 가장 단순한 방식).
 */
 
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-#include <FluxGarage_RoboEyes.h>
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);  // 주소, 컬럼 수, 행 수
-
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64  // OLED가 128x32짜리면 32로 변경
-#define OLED_ADDR 0x3C
-
-// RoboEyes는 템플릿 클래스라서 실제 Adafruit_SSD1306 디스플레이 객체를
-// 만들어서 참조로 넘겨줘야 한다(RoboEyes<Adafruit_SSD1306> eyes(display);).
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-RoboEyes<Adafruit_SSD1306> eyes(display);
 
 const int FLAME_PIN = A0;  // 아날로그로 읽음 (포토트랜지스터+저항 회로)
 const int SOUND_PIN = A2;  // 디지털로 읽음 (DO, 트리머로 감도 캘리브레이션 완료)
 const int TEMP_PIN = A1;   // 아날로그 (LM35DZ)
+
+// ESP32로 flame/sound 판정 결과를 그대로 내보내는 디지털 출력 핀.
+// ESP32는 이 두 핀만 읽어서 얼굴 표정을 결정한다 — 별도 프로토콜 없이
+// 그냥 HIGH/LOW 신호만 주고받는 가장 단순한 방식.
+const int FLAME_OUT_PIN = 8;
+const int SOUND_OUT_PIN = 9;
 
 // 실물 테스트로 확정(2026.08.26) — 라이터 반응 시 LED 켜지는 것까지 확인.
 const int FLAME_THRESHOLD = 5;
@@ -78,28 +68,16 @@ const int FLAME_THRESHOLD = 5;
 const int SAMPLE_COUNT = 10;   // 평균낼 샘플 개수
 const int SAMPLE_DELAY_MS = 5; // 샘플 사이 간격
 
-const unsigned long SENSOR_INTERVAL_MS = 1000;  // 센서 읽기/LCD/시리얼 갱신 주기
-unsigned long lastSensorRead = 0;
-
 enum Mood { MOOD_NORMAL, MOOD_FIRE, MOOD_LOUD };
-Mood lastMood = MOOD_NORMAL;
 Mood lastLcdMood = MOOD_NORMAL;  // LCD는 값이 바뀔 때만 다시 그려서 깜빡임 방지
-
-// 남은 RAM(바이트) 확인용 — 우노는 RAM이 2KB뿐이라 라이브러리를 여러 개
-// 같이 쓰면 부족할 수 있다. OLED begin() 실패 원인이 메모리 부족인지
-// 확인하려고 임시로 추가함(원인 확정되면 지워도 됨).
-extern int __heap_start, *__brkval;
-int freeMemory() {
-  int v;
-  return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int)__brkval);
-}
 
 void setup() {
   Serial.begin(9600);
   pinMode(SOUND_PIN, INPUT);
-
-  Serial.print("남은 메모리(bytes): ");
-  Serial.println(freeMemory());
+  pinMode(FLAME_OUT_PIN, OUTPUT);
+  pinMode(SOUND_OUT_PIN, OUTPUT);
+  digitalWrite(FLAME_OUT_PIN, LOW);
+  digitalWrite(SOUND_OUT_PIN, LOW);
 
   lcd.init();
   lcd.backlight();
@@ -107,14 +85,6 @@ void setup() {
   lcd.print("LostPatrol");
   lcd.setCursor(0, 1);
   lcd.print("Status: NORMAL");
-
-  if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
-    Serial.println("OLED 초기화 실패 — 주소/배선 확인 필요");
-  }
-  eyes.begin(SCREEN_WIDTH, SCREEN_HEIGHT, 60);  // 화면 크기, 목표 프레임레이트(fps)
-  eyes.setAutoblinker(ON, 3, 2);  // 자동 눈깜빡임: 3초 간격(±2초 변동)
-  eyes.setIdleMode(ON, 2, 2);     // 가만히 있을 때 자동으로 이곳저곳 둘러봄
-  eyes.setMood(DEFAULT);
 }
 
 // 여러 번 읽어서 평균낸 값을 돌려준다 — analogRead() 한 번만 쓰면 순간
@@ -128,7 +98,7 @@ int readAverage(int pin) {
   return sum / SAMPLE_COUNT;
 }
 
-void updateLcd(Mood mood, float tempC, int flame, int sound) {
+void updateLcd(Mood mood, float tempC) {
   if (mood == lastLcdMood) return;  // 상태 그대로면 다시 그리지 않음(깜빡임 방지)
   lastLcdMood = mood;
 
@@ -152,34 +122,7 @@ void updateLcd(Mood mood, float tempC, int flame, int sound) {
   }
 }
 
-void updateEyesMood(Mood mood) {
-  if (mood == lastMood) return;  // 상태 그대로면 다시 호출 안 함
-  lastMood = mood;
-
-  switch (mood) {
-    case MOOD_FIRE:
-      eyes.setMood(ANGRY);
-      eyes.anim_confused();  // 위험 신호로 한 번 흔들리는 모션
-      break;
-    case MOOD_LOUD:
-      eyes.setMood(HAPPY);   // 눈이 커지는 느낌으로 놀란 표정 대체 표현
-      eyes.anim_laugh();
-      break;
-    case MOOD_NORMAL:
-    default:
-      eyes.setMood(DEFAULT);
-      break;
-  }
-}
-
 void loop() {
-  // RoboEyes는 매 루프 최대한 자주 update()를 호출해야 부드럽게 움직인다.
-  eyes.update();
-
-  unsigned long now = millis();
-  if (now - lastSensorRead < SENSOR_INTERVAL_MS) return;  // 아직 1초 안 지남
-  lastSensorRead = now;
-
   int flameRaw = readAverage(FLAME_PIN);
   int soundRaw = digitalRead(SOUND_PIN);
   int tempRaw = readAverage(TEMP_PIN);
@@ -198,6 +141,10 @@ void loop() {
   Serial.print(sound);
   Serial.println("}");
 
+  // ESP32로 그대로 신호 전달
+  digitalWrite(FLAME_OUT_PIN, flame ? HIGH : LOW);
+  digitalWrite(SOUND_OUT_PIN, sound ? HIGH : LOW);
+
   // 우선순위: 불꽃 > 큰 소리 > 평온. (둘 다 감지되면 더 위험한 불꽃 표정 우선)
   Mood mood = MOOD_NORMAL;
   if (flame) {
@@ -206,6 +153,7 @@ void loop() {
     mood = MOOD_LOUD;
   }
 
-  updateEyesMood(mood);
-  updateLcd(mood, tempC, flame, sound);
+  updateLcd(mood, tempC);
+
+  delay(900);  // readAverage()가 이미 (10*5=50ms)*2 정도 쓰니 대략 1초 주기 맞춤
 }
