@@ -59,6 +59,11 @@ MOVE_SPEED = 150
 # 실물 모드에서는 "이 시간만큼 움직이고 자동으로 멈춘다"는 의미로 쓰인다.
 MOVE_DURATION_SEC = 1.5
 
+# 제자리 회전(left/right)은 전진/후진보다 훨씬 짧게 돌아야 한다 — 실물
+# 테스트 결과 1.5초면 거의 한 바퀴 넘게 돌아버려서, 조금씩만 돌도록 별도
+# 값으로 분리했다. 필요하면 이 값만 조정하면 됨 (초 단위).
+SPIN_DURATION_SEC = 0.3
+
 # 팀 계약: robot_status.updated_at을 5초마다 갱신해야 함 (15초 지나면 웹이 OFFLINE 표시)
 HEARTBEAT_INTERVAL_SEC = 5
 
@@ -137,6 +142,9 @@ def _move(command: str) -> None:
     print(f"[ROBOT] 모터 동작: {label}")
     _set_state("moving", command)
 
+    # 제자리 회전은 전진/후진보다 훨씬 짧게 돌아야 조금씩만 돈다.
+    duration = SPIN_DURATION_SEC if command in ("left", "right") else MOVE_DURATION_SEC
+
     if _car is not None:
         if command == "forward":
             _car.Car_Run(MOVE_SPEED, MOVE_SPEED)
@@ -150,11 +158,11 @@ def _move(command: str) -> None:
             _car.Car_Stop()
 
         if command != "stop":
-            time.sleep(MOVE_DURATION_SEC)  # 이만큼 움직이고
+            time.sleep(duration)  # 이만큼 움직이고
             _car.Car_Stop()  # 자동으로 정지 (계속 움직이면 안 되니까)
     else:
         if command != "stop":
-            time.sleep(MOVE_DURATION_SEC)  # mock: 흉내만
+            time.sleep(duration)  # mock: 흉내만
 
     print(f"[ROBOT] {label} 완료")
     _set_state("stopped" if command == "stop" else "idle", command)
