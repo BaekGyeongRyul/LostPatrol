@@ -237,10 +237,14 @@ def _grab_frame_rpicam():
     파이썬 라이브러리는 시스템에 깔려있지만 numpy 바이너리 호환성이 깨져
     있어서(pip로 새 numpy가 깔리면서 충돌) 대신 rpicam-still 커맨드라인
     도구를 서브프로세스로 호출해서 JPEG 바이트를 표준출력으로 받는다.
+
+    카메라가 실제로 거꾸로 장착돼 있어서(실물 테스트로 확인, 2026.08.26)
+    --rotation 180 없이 찍으면 위아래가 뒤집힌 사진이 나온다. 이게 YOLO
+    오탐지(물병을 backpack으로 잘못 판단)의 원인 중 하나로 의심돼서 추가함.
     """
     try:
         result = subprocess.run(
-            [RPICAM_STILL, "-o", "-", "-t", "1000", "-n",
+            [RPICAM_STILL, "-o", "-", "-t", "1000", "-n", "--rotation", "180",
              "--width", "1296", "--height", "972"],
             capture_output=True, timeout=15, check=True,
         )
