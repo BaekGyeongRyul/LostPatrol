@@ -45,6 +45,10 @@
        때문에 1초에 한 바퀴만 돎 → millis() 기반으로 "센서 읽기는 1초마다,
        RoboEyes.update()는 매 루프"로 구조를 분리해서 애니메이션이
        끊기지 않게 함.
+  10차: 컴파일 에러로 확인된 사실 — RoboEyes는 템플릿 클래스라 클래스명이
+       소문자 roboEyes가 아니라 대문자 RoboEyes이고, 실제 Adafruit_SSD1306
+       객체를 만들어서 생성자에 참조로 넘겨야 함(RoboEyes<Adafruit_SSD1306>
+       eyes(display);). display.begin()도 별도로 먼저 호출해야 함.
 */
 
 #include <Wire.h>
@@ -57,8 +61,12 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);  // 주소, 컬럼 수, 행 수
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64  // OLED가 128x32짜리면 32로 변경
+#define OLED_ADDR 0x3C
 
-roboEyes eyes;  // 내부적으로 SSD1306(기본 주소 0x3C)을 직접 초기화함
+// RoboEyes는 템플릿 클래스라서 실제 Adafruit_SSD1306 디스플레이 객체를
+// 만들어서 참조로 넘겨줘야 한다(RoboEyes<Adafruit_SSD1306> eyes(display);).
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+RoboEyes<Adafruit_SSD1306> eyes(display);
 
 const int FLAME_PIN = A0;  // 아날로그로 읽음 (포토트랜지스터+저항 회로)
 const int SOUND_PIN = A2;  // 디지털로 읽음 (DO, 트리머로 감도 캘리브레이션 완료)
@@ -88,6 +96,9 @@ void setup() {
   lcd.setCursor(0, 1);
   lcd.print("Status: NORMAL");
 
+  if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
+    Serial.println("OLED 초기화 실패 — 주소/배선 확인 필요");
+  }
   eyes.begin(SCREEN_WIDTH, SCREEN_HEIGHT, 60);  // 화면 크기, 목표 프레임레이트(fps)
   eyes.setAutoblinker(ON, 3, 2);  // 자동 눈깜빡임: 3초 간격(±2초 변동)
   eyes.setIdleMode(ON, 2, 2);     // 가만히 있을 때 자동으로 이곳저곳 둘러봄
