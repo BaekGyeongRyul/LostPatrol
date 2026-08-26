@@ -12,8 +12,8 @@ Web–Supabase–Robot Controller 및 Safety Monitor의 기본 데이터 연동�
 ✅ Web 관제 대시보드 구현, Supabase 연동, GitHub 협업 구조, GitHub Pages 배포, Data Contract 문서화, 안전센서용 신규 테이블(`safety_status`/`patrol_events`) 구축(2026.08.25)
 
 **이윤정** — Raspberry Pi / Razbot
-✅ Mock Robot Controller, Supabase 연동(anon key), Heartbeat, 순찰 상태머신, 버그 3건 수정, Storage 실제 업로드 검증, Safety Monitor ↔ Supabase 연동 검증(2026.08.25)
-🔄 실제 Razbot 하드웨어(모터/라인트레이싱/초음파/카메라) 연동
+✅ Mock Robot Controller, Supabase 연동(anon key), Heartbeat, 순찰 상태머신, 버그 3건 수정, Storage 실제 업로드 검증, Safety Monitor ↔ Supabase 연동 검증(2026.08.25). **로봇 실물 도착·조립, WiFi(AP→STA) 전환, 실제 모터(`YB_Pcb_Car`) 제어 연동 완료(2026.08.26)**
+🔄 실제 라인트레이싱/초음파/카메라 연동, 로봇 위에서 웹↔Supabase 명령 엔드투엔드 테스트
 
 **조은수** — Vision / YOLO
 ✅ 기술 스택 결정(YOLO+OpenCV, Roboflow, Bounding Box), 가방/우산/물병 3종 클래스 구별 가능한 모델 구축(담당자 보고 기준, 2026.08.25)

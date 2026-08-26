@@ -39,10 +39,24 @@ try:
 except ImportError:
     cv2 = None
 
+try:
+    # 실물 로봇(라즈베리파이)에서만 import 성공한다 — I2C(smbus)가 있어야
+    # 동작하는 라이브러리라 노트북(Windows)에서는 실패하는 게 정상이고,
+    # 그 경우 아래 _car가 None으로 남아서 자동으로 mock(흉내) 모드로 돈다.
+    import YB_Pcb_Car
+    _car = YB_Pcb_Car.YB_Pcb_Car()
+    print("[ROBOT] YB_Pcb_Car 로드 완료 — 실물 모터 제어 모드")
+except Exception as exc:
+    _car = None
+    print(f"[ROBOT] YB_Pcb_Car 로드 실패({exc}) — mock 모터 모드로 동작")
+
 WEBCAM_INDEX = 0  # 노트북 기본 웹캠. 카메라가 여러 개면 1, 2...로 바꿔서 테스트
 
-# 이동 명령이 실제로 걸리는 시간(초)을 흉내내기 위한 값.
-# 진짜 로봇에서는 "모터가 도는 시간"이 되고, 지금은 그냥 sleep이다.
+# 모터 속도, Yahboom 예제 기본값 그대로(0~255 범위)
+MOVE_SPEED = 150
+
+# 이동 명령이 실제로 걸리는 시간(초). mock 모드에서는 흉내내는 sleep 시간으로,
+# 실물 모드에서는 "이 시간만큼 움직이고 자동으로 멈춘다"는 의미로 쓰인다.
 MOVE_DURATION_SEC = 1.5
 
 # 팀 계약: robot_status.updated_at을 5초마다 갱신해야 함 (15초 지나면 웹이 OFFLINE 표시)
@@ -101,10 +115,16 @@ def _check_obstacle() -> bool:
 
 def _move(command: str) -> None:
     """
-    전진/후진/좌회전/우회전/정지를 흉내낸다.
-    실제 하드웨어가 오면 여기서 Yahboom 모터 제어 함수를 호출하게 된다.
-    예) robot.forward(speed) / robot.turn_left(speed) 등
-    left/right는 반드시 "제자리 회전"이어야 한다 (전진하며 도는 것 아님).
+    전진/후진/좌회전/우회전/정지를 실행한다.
+
+    _car가 있으면(실물 로봇, YB_Pcb_Car 로드 성공) 실제 모터를 돌리고,
+    없으면(노트북 등) 로그만 찍고 sleep으로 흉내낸다 — 코드 하나로 두
+    환경 다 돌아가게 만들어서, 팀원이 노트북에서 이 코드를 테스트할 때도
+    안 깨지게 했다.
+
+    left/right는 반드시 "제자리 회전"이어야 한다 (전진하며 도는 것 아님) —
+    그래서 Car_Left/Car_Right(곡선주행)가 아니라 Car_Spin_Left/Car_Spin_Right
+    (제자리 회전)를 쓴다. 실물에서 직접 확인 완료(2026.08.26).
     """
     label = {
         "forward": "전진",
@@ -114,13 +134,29 @@ def _move(command: str) -> None:
         "stop": "정지",
     }.get(command, command)
 
-    print(f"[MOCK ROBOT] 모터 동작: {label}")
+    print(f"[ROBOT] 모터 동작: {label}")
     _set_state("moving", command)
 
-    if command != "stop":
-        time.sleep(MOVE_DURATION_SEC)  # 실제로는 모터가 도는 시간
+    if _car is not None:
+        if command == "forward":
+            _car.Car_Run(MOVE_SPEED, MOVE_SPEED)
+        elif command == "backward":
+            _car.Car_Back(MOVE_SPEED, MOVE_SPEED)
+        elif command == "left":
+            _car.Car_Spin_Left(MOVE_SPEED, MOVE_SPEED)
+        elif command == "right":
+            _car.Car_Spin_Right(MOVE_SPEED, MOVE_SPEED)
+        elif command == "stop":
+            _car.Car_Stop()
 
-    print(f"[MOCK ROBOT] {label} 완료")
+        if command != "stop":
+            time.sleep(MOVE_DURATION_SEC)  # 이만큼 움직이고
+            _car.Car_Stop()  # 자동으로 정지 (계속 움직이면 안 되니까)
+    else:
+        if command != "stop":
+            time.sleep(MOVE_DURATION_SEC)  # mock: 흉내만
+
+    print(f"[ROBOT] {label} 완료")
     _set_state("stopped" if command == "stop" else "idle", command)
 
 
@@ -327,4 +363,9 @@ if __name__ == "__main__":
     try:
         run()
     except KeyboardInterrupt:
-        print("\n[MOCK ROBOT] 종료합니다.")
+        print("\n[ROBOT] 종료합니다.")
+    finally:
+        if _car is not None:
+            # Yahboom 문서 권장사항: 안 지워두면 다음 실행 때 I2C 장치가
+            # "이미 점유중"이라는 에러가 날 수 있다.
+            del _car

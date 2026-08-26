@@ -44,18 +44,28 @@
 
 아직 Arduino 실물이 없어(주문 중) `safety_monitor.py`는 계속 mock 값으로 동작 중이며, 시리얼 포트(`SERIAL_PORT`)만 `.env`에 채우면 코드 수정 없이 실물 모드로 전환됩니다.
 
+## ✅ 로봇 실물 도착 + 실제 모터 제어 연동 완료 (2026.08.26)
+
+Razbot 실물 배송·조립 완료 후 당일 아래까지 전부 진행했습니다.
+
+1. **SD카드 굽기 + 부팅**: 준비해뒀던 Yahboom 커스텀 이미지로 SD카드 굽고 부팅, "Raspbot" 자체 핫스팟(AP) 정상 진입 확인
+2. **JupyterLab 터미널 접속**: `http://10.42.0.1:8888`(pw: `yahboom`)로 브라우저 접속 — SSH 계정 몰라도 여기서 터미널 사용 가능
+3. **기본 실행 중이던 원격제어 앱 서버 정리**: `raspbot.py`(부모+자식 프로세스)가 기본으로 떠서 모터/카메라를 선점하고 있어 우리 코드와 충돌 가능 — `sudo kill`로 정리(단, 자동시작 등록돼 있어 재부팅마다 다시 뜸 → 매번 kill 필요, 완전 비활성화는 추후 과제)
+4. **AP → STA(집 WiFi) 전환**: `raspi-config`(WLAN Country) → `nmcli --ask dev wifi connect`로 연결 성공. 재부팅하면 도로 AP로 돌아가는 문제 발견 → `connection.autoconnect-priority`로 집 WiFi 우선순위를 Raspbot AP보다 높여서 재부팅 후에도 유지되도록 해결. 현재 IP(DHCP, 유동): `192.168.0.67`
+5. **로봇에서 팀 GitHub 저장소 clone**: `~/LostPatrol`에 clone, git 계정 설정(PAT 인증) 완료 — 이제 로봇에서 직접 pull/push 가능
+6. **실제 모터 라이브러리(`YB_Pcb_Car.py`) 위치 확인 및 확보**: `~/Yahboom_project/Raspbot/raspbot/YB_Pcb_Car.py`에서 복사, 팀 저장소에 커밋
+7. **실제 모터 동작 실물 테스트 성공**: `Car_Run()`(전진), `Car_Spin_Left()`(제자리 좌회전 — 실제로 제자리에서 도는 것 육안 확인) 둘 다 정상 동작
+8. **`controller.py`의 `_move()`를 실제 모터 제어로 교체 완료**: `YB_Pcb_Car` import 성공 여부로 실물/mock 모드를 자동 분기하도록 구현 — 노트북(Windows)에서는 여전히 mock으로 안전하게 테스트 가능하고, 로봇(라즈베리파이)에서는 실제로 움직임. `forward/backward`는 `Car_Run`/`Car_Back`, **`left/right`(제자리 회전)는 `Car_Spin_Left`/`Car_Spin_Right`**로 매핑(`Car_Left`/`Car_Right`는 곡선주행이라 계약과 안 맞아 사용 안 함)
+
 ## ⬜ 남은 과제
 
-- 실제 Razbot 모터 제어 연동 (`YB_Pcb_Car.py` 라이브러리 연결 — `_move()` 내부 교체)
+- 실제 모터 연동 로봇 위에서 Supabase 명령(웹 버튼) 왕복까지 엔드투엔드 테스트
 - Arduino 실물 도착 후 시리얼 연동 + 온도/소음 임계값 캘리브레이션
 - 실제 라인트레이싱 센서 기반 자동순찰 (`_patrol_loop()` 내부 교체)
 - 실제 초음파 센서 기반 안전정지 (`_check_obstacle()` 내부 교체, 현재는 항상 False 반환하는 stub)
 - Razbot 카메라 실제 연동 (`_capture()`를 Razbot 카메라 입력으로 교체, 조은수 Vision 파이프라인과 연결)
-
-**아직 실제 Razbot 모터/라인트레이싱/초음파/카메라 기능까지 모두 완성된 것은 아니며, 현재는 Mock Controller 단계에서 Supabase 연동 로직만 검증된 상태입니다.**
+- `raspbot.py` 자동시작 영구 비활성화 (매 부팅마다 수동 kill 중)
 
 ## ⚠️ 팀 내 확인 필요
 
-- `HARDWARE_REFERENCE.md`(Yahboom 공식 자료 기준)에 정리된 내용에 따르면 실제 로봇 제어는 WebSocket이 아니라 I2C/GPIO 기반 로컬 파이썬 라이브러리 direct 호출 방식입니다. 좌/우 제자리 회전에 대응하는 정확한 함수명(`Car_Left`/`Car_Right` 등으로 추정)은 아직 실물 도착 후 라이브러리 코드에서 확인이 필요합니다.
 - 초음파 안전정지 거리(`OBSTACLE_STOP_DISTANCE_CM = 20`)는 코드상 자리표시자 값이며, 실물 센서 테스트 후 팀 협의로 확정해야 합니다.
-- **카메라 입력 장치**: 2026.08.25 팀 협의로 별도 ESP32-S3 Camera 없이 Razbot에 장착된 카메라 1대만 사용하는 방향으로 정리되었습니다. 다만 실제 Raspberry Pi에서 이 카메라로 캡처·Vision 입력까지 동작 검증된 것은 아니며, 하드웨어 연동 자체는 여전히 남은 과제입니다.
