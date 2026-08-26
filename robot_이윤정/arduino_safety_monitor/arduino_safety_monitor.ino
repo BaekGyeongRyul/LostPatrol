@@ -6,10 +6,14 @@
   그대로 읽는다 (docs/HARDWARE_REFERENCE.md의 제안 프로토콜과 동일):
       {"flame": 0, "temp_c": 26.4, "sound": 0}
 
-  배선 (Arduino Uno/Nano 기준):
-    FLAME 모듈   VCC→5V, GND→GND, DO→디지털 2번
-    소음센서 모듈 VCC→5V, GND→GND, DO→디지털 3번
-    LM35DZ       VCC→5V, GND→GND, OUT→아날로그 A0
+  배선 (실제 연결 기준, 2026.08.26):
+    FLAME 모듈   VCC→5V, GND→GND, DO→A0
+    소음센서 모듈 VCC→5V, GND→GND, DO→A1
+    LM35DZ       VCC→5V, GND→GND, OUT→A2
+
+  참고: A0~A5는 아날로그 전용이 아니라 digitalRead()/digitalWrite()도 그대로
+  지원하는 핀이라, FLAME/소음센서의 디지털 출력(DO)을 A0/A1에 연결해도
+  문제없다.
 
   주의: 대부분의 IR 불꽃센서 모듈은 불꽃 감지 시 DO가 LOW로 떨어진다.
   실제로 업로드해서 시리얼 모니터로 확인했을 때 반대로 동작하면(평소 0,
@@ -18,9 +22,9 @@
   있으니 마찬가지로 확인 후 필요하면 바꿀 것.
 */
 
-const int FLAME_PIN = 2;   // 디지털
-const int SOUND_PIN = 3;   // 디지털
-const int TEMP_PIN = A0;   // 아날로그 (LM35DZ)
+const int FLAME_PIN = A0;  // 디지털로 읽음 (DO)
+const int SOUND_PIN = A1;  // 디지털로 읽음 (DO)
+const int TEMP_PIN = A2;   // 아날로그 (LM35DZ)
 
 void setup() {
   Serial.begin(9600);
