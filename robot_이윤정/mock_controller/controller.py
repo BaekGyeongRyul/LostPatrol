@@ -58,6 +58,27 @@ except Exception as exc:
     _car = None
     print(f"[ROBOT] YB_Pcb_Car 로드 실패({exc}) — mock 모터 모드로 동작")
 
+# 초음파(Echo/Trig)·라인트레이싱 4채널 센서용. YB_Pcb_Car와 마찬가지로
+# 실물 라즈베리파이에서만 성공하고, 노트북에서는 실패해서 None으로 남는다.
+ECHO_PIN, TRIG_PIN = 18, 16  # BOARD 핀 번호 (HARDWARE_REFERENCE.md 참고)
+TRACKING_LEFT1, TRACKING_LEFT2 = 13, 15
+TRACKING_RIGHT1, TRACKING_RIGHT2 = 11, 7
+
+try:
+    import RPi.GPIO as GPIO
+    GPIO.setmode(GPIO.BOARD)
+    GPIO.setwarnings(False)
+    GPIO.setup(ECHO_PIN, GPIO.IN)
+    GPIO.setup(TRIG_PIN, GPIO.OUT)
+    GPIO.setup(TRACKING_LEFT1, GPIO.IN)
+    GPIO.setup(TRACKING_LEFT2, GPIO.IN)
+    GPIO.setup(TRACKING_RIGHT1, GPIO.IN)
+    GPIO.setup(TRACKING_RIGHT2, GPIO.IN)
+    print("[ROBOT] RPi.GPIO 초기화 완료 — 실물 초음파/라인트레이싱 모드")
+except Exception as exc:
+    GPIO = None
+    print(f"[ROBOT] RPi.GPIO 로드 실패({exc}) — mock 센서 모드로 동작")
+
 WEBCAM_INDEX = 0  # 노트북 기본 웹캠. 카메라가 여러 개면 1, 2...로 바꿔서 테스트
 
 # 모터 속도, Yahboom 예제 기본값 그대로(0~255 범위)
@@ -117,13 +138,43 @@ def _heartbeat_loop() -> None:
             print(f"[MOCK ROBOT] (heartbeat) 갱신 실패: {exc}")
 
 
+def _measure_distance_cm():
+    """
+    초음파 센서(HC-SR04류)로 거리를 재서 cm로 반환한다. GPIO 없으면(노트북 등)
+    또는 측정 실패(타임아웃) 시 None을 반환한다. Yahboom 튜토리얼 예제와
+    동일한 방식(Trig 10us 펄스 → Echo 하이 유지시간으로 거리 계산).
+    """
+    if GPIO is None:
+        return None
+
+    GPIO.output(TRIG_PIN, GPIO.LOW)
+    time.sleep(0.000002)
+    GPIO.output(TRIG_PIN, GPIO.HIGH)
+    time.sleep(0.000015)
+    GPIO.output(TRIG_PIN, GPIO.LOW)
+
+    t3 = time.time()
+    while not GPIO.input(ECHO_PIN):
+        if time.time() - t3 > 0.03:
+            return None
+    t1 = time.time()
+    while GPIO.input(ECHO_PIN):
+        if time.time() - t1 > 0.03:
+            return None
+    t2 = time.time()
+    return (t2 - t1) * 340 / 2 * 100
+
+
 def _check_obstacle() -> bool:
     """
     초음파 센서로 전방 장애물을 감지한다.
-    지금은 센서가 없어서 항상 False. 실물 연동 시: 거리(cm)를 읽어서
-    OBSTACLE_STOP_DISTANCE_CM 이하면 True를 반환하도록 교체한다.
+    GPIO가 없으면(노트북 등) 항상 False(mock). 실물에서는 거리를 재서
+    OBSTACLE_STOP_DISTANCE_CM 이하면 True.
     """
-    return False
+    distance = _measure_distance_cm()
+    if distance is None:
+        return False
+    return distance <= OBSTACLE_STOP_DISTANCE_CM
 
 
 def _move(command: str) -> None:
@@ -296,10 +347,47 @@ def _buzz() -> None:
         print("[MOCK ROBOT] (이 환경에서는 실제 소리 재생 불가 — winsound 없음)")
 
 
+def _read_tracking():
+    """
+    4채널 라인트레이싱 센서 값을 읽는다. (Left1, Left2, Right1, Right2)
+    각 값은 0(검은선 감지) 또는 1(흰 바탕). GPIO 없으면(노트북 등) None.
+    """
+    if GPIO is None:
+        return None
+    return (
+        GPIO.input(TRACKING_LEFT1),
+        GPIO.input(TRACKING_LEFT2),
+        GPIO.input(TRACKING_RIGHT1),
+        GPIO.input(TRACKING_RIGHT2),
+    )
+
+
+def _patrol_steer(l1: int, l2: int, r1: int, r2: int) -> None:
+    """
+    센서 값을 보고 아주 짧게 방향을 조정한다. 간단한 규칙 기반:
+    - 안쪽 두 센서(L2, R1)가 둘 다 검은선 위 → 직진
+    - 왼쪽으로 라인이 치우침(L1/L2가 검은선) → 좌회전으로 보정
+    - 오른쪽으로 치우침(R1/R2가 검은선) → 우회전으로 보정
+    - 전부 흰색(라인을 완전히 놓침) → 일단 정지
+    실물 캘리브레이션 전 초기 버전이라, 나중에 실제 순찰맵으로 테스트하며
+    조정이 더 필요할 수 있다.
+    """
+    if _car is None:
+        return
+    if l2 == 0 and r1 == 0:
+        _car.Car_Run(MOVE_SPEED, MOVE_SPEED)
+    elif l1 == 0 or l2 == 0:
+        _car.Car_Spin_Left(MOVE_SPEED, MOVE_SPEED)
+    elif r1 == 0 or r2 == 0:
+        _car.Car_Spin_Right(MOVE_SPEED, MOVE_SPEED)
+    else:
+        _car.Car_Stop()
+
+
 def _patrol_loop() -> None:
     """
     라인트레이싱 기반 자동순찰 루프 (SLAM 아님 — 바닥에 그려진 정해진
-    라인을 따라가는 방식). 지금은 실제 라인트레이싱 센서가 없어서 mock.
+    라인을 따라가는 방식).
 
     patrol_start로 시작되고, 아래 중 하나라도 발생하면 즉시 종료된다:
     - patrol_stop 명령 (_patrol_active.clear() 로 정상 종료)
@@ -318,17 +406,30 @@ def _patrol_loop() -> None:
         while _patrol_active.is_set():
             if _check_obstacle():
                 print(f"[MOCK ROBOT] 전방 {OBSTACLE_STOP_DISTANCE_CM}cm 이내 장애물 감지 → 안전 정지")
+                if _car is not None:
+                    _car.Car_Stop()
                 _patrol_active.clear()
                 _set_state("stopped", "patrol_stop(obstacle)")
                 return
-            # 실물 연동 시: 4채널 라인트레이싱 센서 값 읽어서 조향 보정.
-            # 지금은 순찰 중이라는 것만 흉내낸다.
-            time.sleep(0.5)
+
+            tracking = _read_tracking()
+            if tracking is not None:
+                _patrol_steer(*tracking)
+                time.sleep(0.1)  # 라인 이탈에 빠르게 반응하려고 짧게
+            else:
+                time.sleep(0.5)  # mock: 센서 없어서 그냥 순찰 중이라는 것만 흉내
 
         print("[MOCK ROBOT] 순찰 종료")
+        if _car is not None:
+            _car.Car_Stop()
         _set_state("idle", "patrol_stop")
     except Exception as exc:
         print(f"[MOCK ROBOT] 순찰 중 오류 발생 → 안전 정지: {exc}")
+        if _car is not None:
+            try:
+                _car.Car_Stop()
+            except Exception:
+                pass
         _patrol_active.clear()
 
 
