@@ -7,47 +7,57 @@
       {"flame": 0, "temp_c": 26.4, "sound": 0}
 
   배선 (실제 연결 기준, 2026.08.26):
-    FLAME 모듈   VCC→5V, GND→GND, DO→A0
-    소음센서 모듈 VCC→5V, GND→GND, DO→A2
-    LM35DZ       VCC→5V, GND→GND, OUT→A1
+    FLAME 센서(2다리 포토트랜지스터형) 짧은다리→5V, 긴다리→A0 + 10kΩ 저항 거쳐 GND
+    소음센서 모듈(비교기 내장, DO 있음)  +→5V, G→GND, DO→A2
+    LM35DZ (평평한 면 기준 왼쪽부터)     왼쪽(VCC)→5V, 가운데(OUT)→A1, 오른쪽(GND)→GND
 
   참고: A0~A5는 아날로그 전용이 아니라 digitalRead()/digitalWrite()도 그대로
-  지원하는 핀이라, FLAME/소음센서의 디지털 출력(DO)을 여기 연결해도 문제없다.
-  (첫 실물 테스트에서 소음/LM35DZ 핀이 코드와 반대로 배선돼있어서 temp_c가
-  항상 499.5(ADC 최댓값)로, sound가 항상 0으로 고정되는 증상이 있었음 —
-  소음센서의 디지털 HIGH를 온도핀이 읽고, LM35DZ의 낮은 아날로그 전압을
-  소음핀이 읽어서 생긴 문제. 아래 핀 번호를 실제 배선에 맞게 수정함.)
+  지원하는 핀이다.
 
-  주의: 대부분의 IR 불꽃센서 모듈은 불꽃 감지 시 DO가 LOW로 떨어진다.
-  실제로 업로드해서 시리얼 모니터로 확인했을 때 반대로 동작하면(평소 0,
-  불꽃 대면 1이 아니라 그 반대라면) 아래 flame 계산의 "== LOW"를
-  "== HIGH"로 바꾸면 된다. 소음센서도 모듈마다 HIGH/LOW 기준이 다를 수
-  있으니 마찬가지로 확인 후 필요하면 바꿀 것.
+  ## 디버깅 이력 (2026.08.26)
+  1차: 소음/LM35DZ 핀이 코드와 반대로 배선돼있어서 temp_c가 항상
+       499.5(ADC 최댓값)로, sound가 항상 0으로 고정됨 → 실제 배선(A1/A2)에
+       맞춰 코드 수정으로 해결.
+  2차: FLAME 센서가 비교기 내장 모듈이 아니라 포토트랜지스터+저항으로 직접
+       구성한 아날로그 회로인데 digitalRead()로 읽어서 flame이 계속 1로
+       고정됨. 이 회로는 밝을수록(IR 강할수록) A0 전압이 올라가는 구조라서
+       analogRead()로 바꾸고 임계값(FLAME_THRESHOLD)과 비교하는 방식으로
+       수정함. 정확한 임계값은 실측 후 조정 필요 — 평상시(불 없음) raw 값과
+       불 켰을 때 raw 값을 시리얼로 확인해서 그 사이 값으로 맞추면 된다
+       (아래 flame_raw를 JSON에 같이 출력해뒀으니 참고, 값 확정되면 지워도 됨).
+
+  주의: 소음센서도 계속 1(또는 0)로 고정되면 모듈에 있는 트리머(가변저항)로
+  감도를 조절해야 할 수 있다 (라인트레이싱 센서 캘리브레이션과 같은 원리).
 */
 
-const int FLAME_PIN = A0;  // 디지털로 읽음 (DO)
-const int SOUND_PIN = A2;  // 디지털로 읽음 (DO)
+const int FLAME_PIN = A0;  // 아날로그로 읽음 (포토트랜지스터+저항 회로)
+const int SOUND_PIN = A2;  // 디지털로 읽음 (DO, 비교기 내장 모듈)
 const int TEMP_PIN = A1;   // 아날로그 (LM35DZ)
+
+// TBD - 실측 후 조정. 평상시 raw 값보다 확실히 높고, 불 켰을 때 raw 값보다
+// 낮은 중간값으로 맞추면 된다. 시리얼 모니터의 flame_raw를 보면서 조정.
+const int FLAME_THRESHOLD = 500;
 
 void setup() {
   Serial.begin(9600);
-  pinMode(FLAME_PIN, INPUT);
   pinMode(SOUND_PIN, INPUT);
 }
 
 void loop() {
-  int flameRaw = digitalRead(FLAME_PIN);
+  int flameRaw = analogRead(FLAME_PIN);
   int soundRaw = digitalRead(SOUND_PIN);
   int tempRaw = analogRead(TEMP_PIN);
 
-  int flame = (flameRaw == LOW) ? 1 : 0;   // 반대로 동작하면 HIGH로 바꿀 것
-  int sound = (soundRaw == HIGH) ? 1 : 0;  // 반대로 동작하면 LOW로 바꿀 것
+  int flame = (flameRaw > FLAME_THRESHOLD) ? 1 : 0;
+  int sound = (soundRaw == HIGH) ? 1 : 0;  // 계속 고정이면 트리머로 감도 조절 필요
 
   // LM35DZ: 10mV/°C, Arduino 5V 기준전압 기준 변환 공식
   float tempC = (tempRaw * 5.0 / 1024.0) * 100.0;
 
   Serial.print("{\"flame\": ");
   Serial.print(flame);
+  Serial.print(", \"flame_raw\": ");   // 캘리브레이션용 — 임계값 확정되면 지워도 됨
+  Serial.print(flameRaw);
   Serial.print(", \"temp_c\": ");
   Serial.print(tempC, 1);
   Serial.print(", \"sound\": ");
