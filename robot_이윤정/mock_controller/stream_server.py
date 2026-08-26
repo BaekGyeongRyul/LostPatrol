@@ -94,6 +94,9 @@ def _capture_loop() -> None:
 
 class StreamHandler(BaseHTTPRequestHandler):
     def do_GET(self):
+        if self.path == "/snapshot.jpg":
+            self._serve_snapshot()
+            return
         if self.path != "/stream.mjpg":
             self.send_response(404)
             self.end_headers()
@@ -116,6 +119,23 @@ class StreamHandler(BaseHTTPRequestHandler):
                 self.wfile.write(b"\r\n")
         except (BrokenPipeError, ConnectionResetError):
             pass  # 클라이언트가 페이지를 닫음 — 정상 상황, 조용히 넘어감
+
+    def _serve_snapshot(self) -> None:
+        """지금 스트리밍 중인 최신 프레임 한 장을 그냥 JPEG 이미지로 돌려준다.
+
+        controller.py의 capture 명령이 카메라를 따로 열지 않고 이 주소를
+        통해 프레임을 가져다 쓸 수 있게 하기 위함 — rpicam-vid(스트리밍)와
+        rpicam-still(캡처)이 카메라를 동시에 열면 충돌할 수 있어서, 스트리밍
+        서버가 떠있을 땐 이미 찍고 있는 영상에서 프레임을 재사용하는 방식으로
+        충돌을 피한다(2026.08.27, 실시간 화면 보면서 캡처도 하고 싶다는
+        요청으로 추가).
+        """
+        frame = broadcaster.get_frame()
+        self.send_response(200)
+        self.send_header("Content-Type", "image/jpeg")
+        self.send_header("Content-Length", str(len(frame)))
+        self.end_headers()
+        self.wfile.write(frame)
 
     def log_message(self, format, *args):
         pass  # 매 프레임마다 접속 로그 찍히면 시끄러워서 끔

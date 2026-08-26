@@ -227,6 +227,34 @@ def _move(command: str) -> None:
     _set_state("stopped" if command == "stop" else "idle", command)
 
 
+STREAM_SNAPSHOT_URL = f"http://localhost:{os.environ.get('STREAM_PORT', '8090')}/snapshot.jpg"
+
+
+def _grab_frame_from_stream_server():
+    """
+    stream_server.py(MJPEG 실시간 스트리밍 서버)가 떠있으면, 거기서 이미
+    찍고 있는 최신 프레임을 그대로 받아온다.
+
+    rpicam-vid(스트리밍)와 rpicam-still(직접 촬영)이 카메라를 동시에 열면
+    충돌할 수 있어서(실물 카메라는 한 번에 한 프로세스만 붙을 수 있음),
+    "실시간 화면 보면서 캡처도 하고 싶다"는 요청에 맞춰 추가함
+    (2026.08.27) — 스트리밍 서버가 안 떠있으면 그냥 실패하고 아래
+    _grab_frame_rpicam()으로 자연스럽게 넘어간다.
+    """
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(STREAM_SNAPSHOT_URL, timeout=2) as resp:
+            data = resp.read()
+        arr = np.frombuffer(data, dtype=np.uint8)
+        frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if frame is not None:
+            print("[ROBOT] 스트리밍 서버에서 프레임 재사용 (카메라 재오픈 없음)")
+        return frame
+    except Exception:
+        return None  # 스트리밍 서버가 안 떠있거나 응답 없음 — 조용히 다음 방법으로
+
+
 def _grab_frame_rpicam():
     """
     Razbot 실물 카메라(CSI 카메라, libcamera 스택)로 촬영한다.
@@ -298,6 +326,9 @@ def _grab_frame():
         return None
 
     if RPICAM_STILL:
+        frame = _grab_frame_from_stream_server()
+        if frame is not None:
+            return frame
         return _grab_frame_rpicam()
     return _grab_frame_webcam()
 
