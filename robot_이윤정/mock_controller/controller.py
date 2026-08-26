@@ -26,6 +26,8 @@ YOONJEONG_RAZBOT_GUIDE.md) 기준으로 아래 규칙을 반영했다:
 
 import time
 import os
+import shutil
+import subprocess
 import threading
 import store
 
@@ -36,8 +38,14 @@ except ImportError:
 
 try:
     import cv2
+    import numpy as np
 except ImportError:
     cv2 = None
+    np = None
+
+# 실물 Razbot(라즈베리파이)에만 있는 CSI 카메라 촬영 커맨드라인 도구.
+# 있으면 실물 카메라로, 없으면(노트북 등) 웹캠으로 자동 분기한다.
+RPICAM_STILL = shutil.which("rpicam-still")
 
 try:
     # 실물 로봇(라즈베리파이)에서만 import 성공한다 — I2C(smbus)가 있어야
@@ -168,24 +176,35 @@ def _move(command: str) -> None:
     _set_state("stopped" if command == "stop" else "idle", command)
 
 
-def _grab_frame():
+def _grab_frame_rpicam():
     """
-    "카메라에서 이미지 한 장을 가져오는" 부분만 따로 뺀 함수.
+    Razbot 실물 카메라(CSI 카메라, libcamera 스택)로 촬영한다.
 
-    지금은 노트북 웹캠(cv2.VideoCapture)으로 가져오지만, 실제 로봇이
-    오면 이 안쪽 구현이 완전히 바뀔 수 있다 — Yahboom 카메라는 웹캠처럼
-    단순 device index가 아니라 라즈베리파이가 띄운 WebSocket 영상
-    스트림(포트 6001)에서 프레임을 받아오는 방식일 가능성이 있기 때문.
-    그래서 "이미지를 저장/전달하는 방식"(_capture)과 "이미지를 어디서
-    가져오는지"(_grab_frame)를 분리해뒀다 — 나중엔 이 함수 안쪽만
-    통째로 교체하면 된다.
-
-    반환값: cv2 이미지(numpy 배열) 또는 실패 시 None.
+    이 카메라는 rp1-cfe/pispbe 드라이버를 쓰는 CSI 카메라라서 일반 USB
+    웹캠처럼 cv2.VideoCapture()로 바로 프레임을 못 읽는다(장치는 열리지만
+    read()가 계속 실패함 — 실물 테스트로 확인, 2026.08.26). picamera2
+    파이썬 라이브러리는 시스템에 깔려있지만 numpy 바이너리 호환성이 깨져
+    있어서(pip로 새 numpy가 깔리면서 충돌) 대신 rpicam-still 커맨드라인
+    도구를 서브프로세스로 호출해서 JPEG 바이트를 표준출력으로 받는다.
     """
-    if cv2 is None:
-        print("[MOCK ROBOT] opencv-python이 설치되어 있지 않습니다 (pip install opencv-python)")
+    try:
+        result = subprocess.run(
+            [RPICAM_STILL, "-o", "-", "-t", "1000", "-n",
+             "--width", "1296", "--height", "972"],
+            capture_output=True, timeout=15, check=True,
+        )
+        arr = np.frombuffer(result.stdout, dtype=np.uint8)
+        frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if frame is None:
+            print("[ROBOT] rpicam-still 출력 디코딩 실패")
+        return frame
+    except Exception as exc:
+        print(f"[ROBOT] rpicam-still 촬영 실패: {exc}")
         return None
 
+
+def _grab_frame_webcam():
+    """웹캠(cv2.VideoCapture)으로 촬영한다 — 노트북 등 CSI 카메라가 없는 환경용."""
     cam = cv2.VideoCapture(WEBCAM_INDEX)
     if not cam.isOpened():
         print(f"[MOCK ROBOT] 웹캠(index={WEBCAM_INDEX})을 열 수 없습니다")
@@ -202,6 +221,26 @@ def _grab_frame():
             break
     cam.release()
     return frame
+
+
+def _grab_frame():
+    """
+    "카메라에서 이미지 한 장을 가져오는" 부분만 따로 뺀 함수.
+
+    rpicam-still이 있으면(실물 Razbot, CSI 카메라) 그걸로 촬영하고,
+    없으면(노트북 등) 웹캠으로 촬영한다 — 자동 분기라 코드 하나로 두
+    환경 다 돌아간다. "이미지를 저장/전달하는 방식"(_capture)과 분리해둔
+    덕분에 이 함수 안쪽만 통째로 교체해서 실물로 전환할 수 있었다.
+
+    반환값: cv2 이미지(numpy 배열) 또는 실패 시 None.
+    """
+    if cv2 is None:
+        print("[MOCK ROBOT] opencv-python이 설치되어 있지 않습니다 (pip install opencv-python)")
+        return None
+
+    if RPICAM_STILL:
+        return _grab_frame_rpicam()
+    return _grab_frame_webcam()
 
 
 def _capture() -> None:
