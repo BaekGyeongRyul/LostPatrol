@@ -13,8 +13,8 @@
 | 7 | Pi가 5초마다 `robot_status.updated_at` 갱신 | 웹 상태 배지가 계속 **ONLINE** 유지 | 이윤정 | ☑ (2026.08.25 24분 무중단 테스트로 검증, 2026.08.26 실물 Pi에서도 확인) |
 | 8 | Pi 연결/heartbeat 중단 | 마지막 갱신 후 **15초 뒤** 웹이 자동으로 **OFFLINE** 표시 | 이윤정 | ☐ |
 | 9 | 자동순찰 중 초음파 센서로 장애물 감지 | 설정된 거리 이내 장애물 발견 시 로봇이 **안전 정지** (회피 아님) | 이윤정 | ☐ |
-| 10 | 카메라 앞에 umbrella / bottle / backpack 노출 | YOLO가 탐지하고(2~3회 연속 검출 확인 후) `lost_items`에 새 행 INSERT (`status='new'`) | 조은수 | ☐ |
-| 11 | 위 탐지 시 촬영된 이미지 | `lost-item-photos` 버킷에 업로드되고, 그 공개 URL이 `lost_items.image_url`에 저장되어 **웹 화면에 실제 이미지로 표시**됨 | 조은수 | ☐ |
+| 10 | 카메라 앞에 umbrella / bottle / backpack 노출 | YOLO가 탐지하고(2~3회 연속 검출 확인 후) `lost_items`에 새 행 INSERT (`status='new'`) | 조은수 | 🔶 로직은 검증됨(2026.08.26, 이윤정: `vision_조은수/detect_and_register.py` 초안 작성, 학습용 테스트 이미지로 3종 감지+연속2회+INSERT 실제 확인) — **실물 카메라로 진짜 물체 비추는 최종 테스트는 아직** |
+| 11 | 위 탐지 시 촬영된 이미지 | `lost-item-photos` 버킷에 업로드되고, 그 공개 URL이 `lost_items.image_url`에 저장되어 **웹 화면에 실제 이미지로 표시**됨 | 조은수 | 🔶 위와 동일 — Storage 업로드+URL 저장 로직은 실제 Supabase로 확인됨, 실물 카메라 기준 최종 확인 필요 |
 | 12 | 웹 분실물 상세 화면에서 상태 변경(예: 확인 필요 → 보관 중) | `lost_items.status`가 실제로 UPDATE됨 (이미 검증 완료, 회귀 확인용) | Web 담당 | ☐ |
 
 ## 테스트 팁
