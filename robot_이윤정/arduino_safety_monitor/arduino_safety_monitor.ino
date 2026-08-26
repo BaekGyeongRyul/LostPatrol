@@ -85,9 +85,21 @@ enum Mood { MOOD_NORMAL, MOOD_FIRE, MOOD_LOUD };
 Mood lastMood = MOOD_NORMAL;
 Mood lastLcdMood = MOOD_NORMAL;  // LCD는 값이 바뀔 때만 다시 그려서 깜빡임 방지
 
+// 남은 RAM(바이트) 확인용 — 우노는 RAM이 2KB뿐이라 라이브러리를 여러 개
+// 같이 쓰면 부족할 수 있다. OLED begin() 실패 원인이 메모리 부족인지
+// 확인하려고 임시로 추가함(원인 확정되면 지워도 됨).
+extern int __heap_start, *__brkval;
+int freeMemory() {
+  int v;
+  return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int)__brkval);
+}
+
 void setup() {
   Serial.begin(9600);
   pinMode(SOUND_PIN, INPUT);
+
+  Serial.print("남은 메모리(bytes): ");
+  Serial.println(freeMemory());
 
   lcd.init();
   lcd.backlight();
