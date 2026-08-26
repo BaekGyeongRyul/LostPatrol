@@ -24,44 +24,58 @@
   3차: 임계값을 500으로 뒀더니 이번엔 항상 0(전혀 안 오름) — 이 회로는
        실측 결과 값의 범위 자체가 아주 작아서(수십 단위도 안 됨) 500은
        터무니없이 높은 값이었음. 실물 테스트(라이터 반응 시 LED 켜지는
-       것까지 확인)로 5로 낮춰서 정상 동작 확인함(2026.08.26).
-
-  주의: 소음센서도 계속 1(또는 0)로 고정되면 모듈에 있는 트리머(가변저항)로
-  감도를 조절해야 할 수 있다 (라인트레이싱 센서 캘리브레이션과 같은 원리).
+       것까지 확인)로 5로 낮춰서 정상 동작 확인함.
+  4차: 소음센서(DO만 있는 모듈)는 트리머로 감도 조정해서 평소 0, 큰 소리에만
+       1로 반응하도록 캘리브레이션 완료.
+  5차: temp_c가 5.9~73.7도로 튀는 현상 발견 — 한 번의 analogRead() 값을
+       그대로 쓰던 걸 여러 번 읽어 평균 내는 방식(readAverage())으로 바꿔서
+       안정화.
 */
 
 const int FLAME_PIN = A0;  // 아날로그로 읽음 (포토트랜지스터+저항 회로)
-const int SOUND_PIN = A2;  // 디지털로 읽음 (DO, 비교기 내장 모듈)
+const int SOUND_PIN = A2;  // 디지털로 읽음 (DO, 트리머로 감도 캘리브레이션 완료)
 const int TEMP_PIN = A1;   // 아날로그 (LM35DZ)
 
 // 실물 테스트로 확정(2026.08.26) — 라이터 반응 시 LED 켜지는 것까지 확인.
 const int FLAME_THRESHOLD = 5;
+
+const int SAMPLE_COUNT = 10;   // 평균낼 샘플 개수
+const int SAMPLE_DELAY_MS = 5; // 샘플 사이 간격
 
 void setup() {
   Serial.begin(9600);
   pinMode(SOUND_PIN, INPUT);
 }
 
+// 여러 번 읽어서 평균낸 값을 돌려준다 — analogRead() 한 번만 쓰면 순간
+// 노이즈로 값이 크게 튀는 문제(temp_c가 5.9~73.7도로 튀던 것)가 있어서 추가함.
+int readAverage(int pin) {
+  long sum = 0;
+  for (int i = 0; i < SAMPLE_COUNT; i++) {
+    sum += analogRead(pin);
+    delay(SAMPLE_DELAY_MS);
+  }
+  return sum / SAMPLE_COUNT;
+}
+
 void loop() {
-  int flameRaw = analogRead(FLAME_PIN);
+  int flameRaw = readAverage(FLAME_PIN);
   int soundRaw = digitalRead(SOUND_PIN);
-  int tempRaw = analogRead(TEMP_PIN);
+  int tempRaw = readAverage(TEMP_PIN);
 
   int flame = (flameRaw > FLAME_THRESHOLD) ? 1 : 0;
-  int sound = (soundRaw == HIGH) ? 1 : 0;  // 계속 고정이면 트리머로 감도 조절 필요
+  int sound = (soundRaw == HIGH) ? 1 : 0;
 
   // LM35DZ: 10mV/°C, Arduino 5V 기준전압 기준 변환 공식
   float tempC = (tempRaw * 5.0 / 1024.0) * 100.0;
 
   Serial.print("{\"flame\": ");
   Serial.print(flame);
-  Serial.print(", \"flame_raw\": ");   // 캘리브레이션용 — 임계값 확정되면 지워도 됨
-  Serial.print(flameRaw);
   Serial.print(", \"temp_c\": ");
   Serial.print(tempC, 1);
   Serial.print(", \"sound\": ");
   Serial.print(sound);
   Serial.println("}");
 
-  delay(1000);
+  delay(900);  // readAverage()가 이미 (10*5=50ms)*2 정도 쓰니 대략 1초 주기 맞춤
 }
