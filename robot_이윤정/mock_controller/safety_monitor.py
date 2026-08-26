@@ -54,7 +54,15 @@ def _open_serial():
     if serial is None or not SERIAL_PORT:
         return None
     try:
-        return serial.Serial(SERIAL_PORT, SERIAL_BAUD, timeout=1)
+        ser = serial.Serial(SERIAL_PORT, SERIAL_BAUD, timeout=1)
+        # 포트를 열면 대부분의 아두이노 보드는 DTR 신호 때문에 자동으로
+        # 리셋된다(재부팅). 리셋 직후 부트로더가 안정화되기 전까지 들어오는
+        # 바이트는 쓰레기 값(널 바이트 등)일 수 있어서, 잠깐 기다렸다가
+        # 그 사이 쌓인 입력 버퍼를 비우고 시작한다 (실물 테스트로 확인,
+        # 2026.08.26 — 리셋 직후 계속 '\x00' 바이트만 읽히던 문제).
+        time.sleep(2)
+        ser.reset_input_buffer()
+        return ser
     except Exception as exc:
         print(f"[SAFETY] 시리얼 포트({SERIAL_PORT}) 열기 실패, mock으로 전환: {exc}")
         return None
