@@ -6,9 +6,10 @@ import {
   CheckCircle2,
   ArrowRight,
   Activity,
-  Camera,
-  ShieldCheck,
-  Radar,
+  Bot,
+  ScanSearch,
+  Database,
+  Monitor,
 } from 'lucide-react'
 import StatCard from '../components/StatCard'
 import LostItemCard from '../components/LostItemCard'
@@ -67,18 +68,34 @@ export default function Dashboard() {
               </Link>
             </div>
           </div>
-          <div className="dashboard-hero__visual" aria-hidden="true">
+          <div className="dashboard-hero__visual">
             <div className="hero-tile hero-tile--a">
-              <Camera size={30} strokeWidth={1.7} />
+              <Bot size={26} strokeWidth={1.8} />
+              <p className="hero-tile__label">
+                <span className="hero-tile__num">1</span>순찰
+              </p>
+              <p className="hero-tile__caption">Razbot 자동 순찰</p>
             </div>
             <div className="hero-tile hero-tile--b">
-              <ShieldCheck size={30} strokeWidth={1.7} />
+              <ScanSearch size={26} strokeWidth={1.8} />
+              <p className="hero-tile__label">
+                <span className="hero-tile__num">2</span>AI 탐지
+              </p>
+              <p className="hero-tile__caption">카메라로 분실물 탐지</p>
             </div>
             <div className="hero-tile hero-tile--c">
-              <PackageSearch size={30} strokeWidth={1.7} />
+              <Database size={26} strokeWidth={1.8} />
+              <p className="hero-tile__label">
+                <span className="hero-tile__num">3</span>데이터 등록
+              </p>
+              <p className="hero-tile__caption">Supabase 자동 저장</p>
             </div>
             <div className="hero-tile hero-tile--d">
-              <Radar size={30} strokeWidth={1.7} />
+              <Monitor size={26} strokeWidth={1.8} />
+              <p className="hero-tile__label">
+                <span className="hero-tile__num">4</span>웹 관제
+              </p>
+              <p className="hero-tile__caption">실시간 확인·제어</p>
             </div>
           </div>
         </div>

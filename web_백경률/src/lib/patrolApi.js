@@ -1,28 +1,53 @@
+import { supabase } from './supabaseClient'
+import { isDemoMode } from './api'
 import { mockSafetyStatus, mockPatrolEvents, mockCameraFeed } from '../data/mockPatrolData'
 
-// lost_items / robot_commands / robot_status 와 달리, 안전 감지·순찰 이벤트·카메라 스트림은
-// 아직 Supabase에 대응 테이블이 없다(센서/카메라 하드웨어가 아직 연결되지 않았기 때문).
-// 그래서 이 함수들은 지금은 항상 Mock 데이터를 반환하지만, lib/api.js와 동일한 형태의
-// 비동기 함수로 만들어 두었다. 나중에 테이블이 생기면 이 함수 내부만
-// Supabase 조회로 바꾸면 되고, 이 함수를 호출하는 hooks/컴포넌트는 수정할 필요가 없다.
+// lost_items / robot_commands / robot_status 와 마찬가지로, 안전 감지(safety_status)와
+// 순찰 이벤트(patrol_events)도 이제 Supabase 테이블이 연동되어 있다(이윤정 담당,
+// robot_이윤정/mock_controller/safety_monitor.py·motion_monitor.py 참고). Demo 모드
+// (Supabase 환경변수 미설정)에서는 기존처럼 Mock 데이터를 그대로 사용한다.
+// 카메라 스트림(patrol_events 이후 추가 예정)만 아직 대응 테이블이 없어 Mock을 유지한다.
+
+function mapSafetyStatusRow(row) {
+  return {
+    fire: {
+      severity: row.fire_severity,
+      flameDetected: row.flame_detected,
+      temperatureC: row.temperature_c,
+    },
+    motion: {
+      severity: row.motion_severity,
+      personDetected: row.person_detected,
+    },
+    sound: {
+      severity: row.sound_severity,
+      level: row.sound_level,
+    },
+  }
+}
 
 export async function fetchSafetyStatus() {
-  // TODO: Arduino(FLAME + LM35DZ) / Sound Sensor 연동 후 아래로 교체
-  // const { data, error } = await supabase.from('safety_status').select('*').single()
-  return mockSafetyStatus
+  if (isDemoMode) {
+    return mockSafetyStatus
+  }
+  const { data, error } = await supabase.from('safety_status').select('*').eq('id', 1).single()
+  if (error) throw error
+  return mapSafetyStatusRow(data)
 }
 
 export async function fetchPatrolEvents(limit = 10) {
-  // TODO: `patrol_events` 테이블(id, event_type, location, message, created_at, severity)
-  // 생성 후 아래로 교체
-  // const { data, error } = await supabase
-  //   .from('patrol_events')
-  //   .select('*')
-  //   .order('created_at', { ascending: false })
-  //   .limit(limit)
-  return [...mockPatrolEvents]
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .slice(0, limit)
+  if (isDemoMode) {
+    return [...mockPatrolEvents]
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, limit)
+  }
+  const { data, error } = await supabase
+    .from('patrol_events')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return data
 }
 
 export async function fetchCameraFeed() {

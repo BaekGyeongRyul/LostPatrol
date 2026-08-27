@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, MapPin, Clock, Gauge } from 'lucide-react'
+import { ArrowLeft, MapPin, Clock } from 'lucide-react'
 import StatusBadge from '../components/StatusBadge'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
@@ -10,7 +10,6 @@ import {
   MANUAL_STATUS_OPTIONS,
   LOST_ITEM_STATUS,
   LOST_ITEM_STATUS_LABEL,
-  formatConfidence,
   formatItemType,
 } from '../lib/statusMap'
 import { formatDateTime } from '../lib/time'
@@ -98,12 +97,6 @@ export default function LostItemDetail() {
           </p>
 
           <dl className="detail-facts">
-            <div>
-              <dt>
-                <Gauge size={14} /> AI Confidence
-              </dt>
-              <dd>{formatConfidence(item.confidence)}</dd>
-            </div>
             <div>
               <dt>
                 <Clock size={14} /> Detected Time
