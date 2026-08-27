@@ -140,14 +140,17 @@
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: 1fr;
   gap: var(--gap-lg);
   align-items: start;
 }
 
-.panel--activity {
-  position: sticky;
-  top: 90px;
+/* Robot Activity는 더 이상 사이드바가 아니라 전체 폭 섹션이라, 목록/버튼이
+   가장자리까지 늘어져 읽기 불편해지지 않도록 내부 콘텐츠 폭만 적당히 제한한다. */
+.panel--activity .activity-list,
+.panel--activity .safety-mini,
+.panel--activity .btn--block {
+  max-width: 640px;
 }
 
 .safety-mini {
