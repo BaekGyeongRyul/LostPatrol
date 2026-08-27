@@ -386,6 +386,42 @@
   gap: 8px;
 }
 
+/* ---------- Item card : placeholder(안내용, 실제 분실물 아님) ---------- */
+
+.item-card--placeholder {
+  cursor: default;
+}
+
+.item-grid .item-card--placeholder:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--border);
+}
+
+.item-card__photo--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+}
+
+.item-card__body--placeholder {
+  align-items: center;
+  text-align: center;
+}
+
+.item-card--placeholder__title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.item-card--placeholder__caption {
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.4;
+}
+
 .item-card__top {
   display: flex;
   align-items: center;

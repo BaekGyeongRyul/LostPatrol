@@ -33,6 +33,24 @@ const COMMAND_LABEL = {
   patrol_stop: '자동순찰 종료 (Patrol Stop)',
 }
 
+// Desktop 한 줄(4칸) 기준 — 실제 분실물이 이보다 적으면 남는 자리를 안내 카드로 채운다.
+const RECENT_ITEMS_ROW_TARGET = 4
+
+// 실제 Lost Item이 아닌 단순 UI placeholder. 클릭/Supabase 데이터/상태 변경 없음.
+function LostItemPlaceholderCard() {
+  return (
+    <div className="item-card item-card--placeholder" aria-hidden="true">
+      <div className="item-card__photo item-card__photo--placeholder">
+        <PackageSearch size={26} strokeWidth={1.6} />
+      </div>
+      <div className="item-card__body item-card__body--placeholder">
+        <p className="item-card--placeholder__title">등록된 분실물이 표시됩니다</p>
+        <p className="item-card--placeholder__caption">AI가 탐지한 분실물이 자동으로 등록됩니다.</p>
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const { items, loading, error, refetch } = useLostItems()
   const { commands } = useRobotCommands({ limit: 6 })
@@ -46,6 +64,7 @@ export default function Dashboard() {
   }
 
   const recentItems = items.slice(0, 6)
+  const placeholderCount = Math.max(0, RECENT_ITEMS_ROW_TARGET - recentItems.length)
 
   return (
     <>
@@ -140,6 +159,9 @@ export default function Dashboard() {
               <div className="item-grid">
                 {recentItems.map((item) => (
                   <LostItemCard key={item.id} item={item} />
+                ))}
+                {Array.from({ length: placeholderCount }).map((_, i) => (
+                  <LostItemPlaceholderCard key={`placeholder-${i}`} />
                 ))}
               </div>
             )}
