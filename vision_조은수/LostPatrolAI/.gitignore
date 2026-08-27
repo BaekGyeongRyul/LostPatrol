@@ -1,0 +1,4 @@
+.venv/
+yolo26n.pt
+__pycache__/
+*.pyc
