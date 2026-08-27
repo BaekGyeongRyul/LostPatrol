@@ -129,7 +129,7 @@ export default function Dashboard() {
         </section>
 
         <div className="dashboard-grid">
-          <section className="panel">
+          <section className="panel panel--recent-items">
             <div className="panel__header">
               <h2>최근 발견된 분실물</h2>
               <Link to="/lost-items" className="panel__link">
@@ -138,7 +138,7 @@ export default function Dashboard() {
             </div>
 
             {loading && (
-              <div className="item-grid">
+              <div className="item-grid item-grid--dashboard">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <SkeletonCard key={i} />
                 ))}
@@ -156,7 +156,7 @@ export default function Dashboard() {
             )}
 
             {!loading && !error && recentItems.length > 0 && (
-              <div className="item-grid">
+              <div className="item-grid item-grid--dashboard">
                 {recentItems.map((item) => (
                   <LostItemCard key={item.id} item={item} />
                 ))}

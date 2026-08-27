@@ -337,6 +337,27 @@
   gap: 16px;
 }
 
+/* Dashboard "최근 발견된 분실물": 상단 stat-grid와 동일한 4-column 트랙(같은 gap, 같은 parent
+   content width)을 공유해 두 grid의 column 경계를 픽셀 단위로 맞춘다. panel의 좌우 padding을
+   grid에서는 제거하고 header로만 옮겨, item-grid의 실제 시작/끝 X좌표가 stat-grid와 같아지도록
+   한다. 정렬 요구사항이 없는 tablet/mobile(<=1100px)에서는 기존 auto-fill 반응형을 그대로 둔다. */
+@media (min-width: 1101px) {
+  .panel--recent-items {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .panel--recent-items > .panel__header {
+    padding-left: var(--card-padding);
+    padding-right: var(--card-padding);
+  }
+
+  .item-grid--dashboard {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--gap-lg);
+  }
+}
+
 .item-card {
   display: flex;
   flex-direction: column;
