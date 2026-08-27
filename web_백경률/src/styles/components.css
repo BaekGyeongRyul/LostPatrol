@@ -1199,9 +1199,9 @@
 
 .fire-ack-banner {
   position: fixed;
-  top: 20px;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   z-index: 200;
   display: flex;
   align-items: center;
