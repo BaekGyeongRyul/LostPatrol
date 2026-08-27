@@ -1112,9 +1112,9 @@
 
 .fire-alert-overlay__message {
   position: absolute;
-  top: 20px;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   pointer-events: auto;
   display: flex;
   align-items: center;
@@ -1192,7 +1192,6 @@
 @media (max-width: 640px) {
   .fire-alert-overlay__message {
     flex-wrap: wrap;
-    top: 12px;
   }
 }
 
