@@ -10,6 +10,9 @@ import {
   ScanSearch,
   Database,
   Monitor,
+  ShieldCheck,
+  Backpack,
+  Flame,
 } from 'lucide-react'
 import StatCard from '../components/StatCard'
 import LostItemCard from '../components/LostItemCard'
@@ -21,6 +24,7 @@ import { useRobotCommands } from '../hooks/useRobotCommands'
 import { useSafetyStatus } from '../hooks/useSafetyStatus'
 import { LOST_ITEM_STATUS } from '../lib/statusMap'
 import { formatRelativeTime } from '../lib/time'
+import heroRobotImg from '../assets/hero-robot.webp'
 
 const COMMAND_LABEL = {
   forward: '전진 (Forward)',
@@ -69,14 +73,6 @@ export default function Dashboard() {
   return (
     <>
       <section className="dashboard-hero">
-        <div className="dashboard-hero__decor" aria-hidden="true">
-          <span className="hero-radar-ring" />
-          <span className="hero-radar-ring hero-radar-ring--1" />
-          <span className="hero-radar-ring hero-radar-ring--2" />
-          <span className="hero-radar-core">
-            <Bot size={44} strokeWidth={1.6} />
-          </span>
-        </div>
         <div className="dashboard-hero__inner">
           <div className="dashboard-hero__text">
             <p className="dashboard-hero__eyebrow">AI Patrol Robot Platform</p>
@@ -93,6 +89,36 @@ export default function Dashboard() {
               <Link to="/live-patrol" className="btn btn--outline btn--lg">
                 실시간 순찰 보기
               </Link>
+            </div>
+          </div>
+
+          <div className="dashboard-hero__visual">
+            <div className="hero-robot-stage">
+              <span className="hero-radar-ring" />
+              <span className="hero-radar-ring hero-radar-ring--1" />
+              <span className="hero-radar-ring hero-radar-ring--2" />
+              <span className="hero-robot-glow" />
+              <img
+                className="hero-robot-photo"
+                src={heroRobotImg}
+                alt="LostPatrol 순찰 로봇"
+                width={520}
+                height={473}
+                loading="eager"
+              />
+
+              <span className="hero-feature-badge hero-feature-badge--safety">
+                <ShieldCheck size={16} strokeWidth={2} />
+                안전 순찰
+              </span>
+              <span className="hero-feature-badge hero-feature-badge--lost">
+                <Backpack size={16} strokeWidth={2} />
+                분실물 등록
+              </span>
+              <span className="hero-feature-badge hero-feature-badge--fire">
+                <Flame size={16} strokeWidth={2} />
+                화재 감지
+              </span>
             </div>
           </div>
         </div>

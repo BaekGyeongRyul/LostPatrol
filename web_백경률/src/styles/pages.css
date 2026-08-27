@@ -34,15 +34,34 @@
   pointer-events: none;
 }
 
-.dashboard-hero__decor {
-  position: absolute;
-  right: -80px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 560px;
-  height: 560px;
-  z-index: 0;
-  pointer-events: none;
+.dashboard-hero__inner {
+  position: relative;
+  z-index: 1;
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 104px 40px 108px;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 32px;
+  align-items: center;
+}
+
+.dashboard-hero__text {
+  max-width: 620px;
+}
+
+/* ---------- Hero : 로봇 비주얼 ---------- */
+
+.dashboard-hero__visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-robot-stage {
+  position: relative;
+  width: 440px;
+  height: 440px;
 }
 
 .hero-radar-ring {
@@ -50,41 +69,86 @@
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.08);
   inset: 0;
+  pointer-events: none;
 }
 
 .hero-radar-ring--1 {
-  inset: 70px;
+  inset: 54px;
   border-color: rgba(255, 255, 255, 0.1);
 }
 
 .hero-radar-ring--2 {
-  inset: 150px;
+  inset: 116px;
   border-color: rgba(255, 255, 255, 0.14);
-  background: radial-gradient(circle, rgba(47, 95, 214, 0.22), transparent 72%);
+  background: radial-gradient(circle, rgba(47, 95, 214, 0.2), transparent 72%);
 }
 
-.hero-radar-core {
+.hero-robot-glow {
   position: absolute;
-  inset: 230px;
+  inset: 60px;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--accent-bright), #1c3f8f);
-  box-shadow: 0 0 70px 12px rgba(47, 95, 214, 0.45);
-  color: #fff;
+  background: radial-gradient(circle, rgba(140, 110, 255, 0.32), rgba(47, 95, 214, 0.16) 55%, transparent 75%);
+  filter: blur(18px);
+  pointer-events: none;
 }
 
-.dashboard-hero__inner {
-  position: relative;
+.hero-robot-photo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 82%;
+  height: auto;
   z-index: 1;
-  max-width: var(--content-width);
-  margin: 0 auto;
-  padding: 104px 40px 108px;
+  filter: drop-shadow(0 30px 40px rgba(0, 0, 0, 0.45));
 }
 
-.dashboard-hero__text {
-  max-width: 620px;
+.hero-feature-badge {
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  background: rgba(20, 30, 55, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 26px -14px rgba(0, 0, 0, 0.6);
+}
+
+.hero-feature-badge svg {
+  color: #bcd2ff;
+  flex-shrink: 0;
+}
+
+.hero-feature-badge--safety {
+  top: 6%;
+  left: -4%;
+}
+
+.hero-feature-badge--lost {
+  top: 12%;
+  right: -8%;
+}
+
+.hero-feature-badge--fire {
+  bottom: 4%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 9px 18px;
+  font-size: 13px;
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(248, 113, 113, 0.55);
+  box-shadow: 0 14px 30px -12px rgba(239, 68, 68, 0.6);
+}
+
+.hero-feature-badge--fire svg {
+  color: #fca5a5;
 }
 
 .dashboard-hero__eyebrow {
@@ -150,14 +214,21 @@
 
 @media (max-width: 1100px) {
   .dashboard-hero__inner {
-    padding: 76px 40px 80px;
+    grid-template-columns: 1fr;
+    padding: 76px 40px 48px;
   }
 
-  .dashboard-hero__decor {
-    width: 420px;
-    height: 420px;
-    right: -140px;
-    opacity: 0.7;
+  .dashboard-hero__text {
+    max-width: none;
+  }
+
+  .dashboard-hero__visual {
+    margin-top: 40px;
+  }
+
+  .hero-robot-stage {
+    width: 360px;
+    height: 360px;
   }
 
   .dashboard-hero__title {
@@ -165,13 +236,37 @@
   }
 }
 
-@media (max-width: 640px) {
-  .dashboard-hero__inner {
-    padding: 56px 20px 60px;
+@media (max-width: 760px) {
+  .hero-robot-stage {
+    width: min(300px, 82vw);
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
   }
 
-  .dashboard-hero__decor {
+  .hero-radar-ring,
+  .hero-robot-glow {
     display: none;
+  }
+
+  .hero-robot-photo {
+    position: static;
+    transform: none;
+    width: min(220px, 60vw);
+    margin: 0 auto 4px;
+  }
+
+  .hero-feature-badge {
+    position: static;
+    transform: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-hero__inner {
+    padding: 56px 20px 44px;
   }
 
   .dashboard-hero__title {
