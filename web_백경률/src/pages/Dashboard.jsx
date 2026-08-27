@@ -24,7 +24,7 @@ import { useRobotCommands } from '../hooks/useRobotCommands'
 import { useSafetyStatus } from '../hooks/useSafetyStatus'
 import { LOST_ITEM_STATUS } from '../lib/statusMap'
 import { formatRelativeTime } from '../lib/time'
-import heroRobotImg from '../assets/hero-robot.webp'
+import heroRobotImg from '../assets/hero-robot.svg'
 
 const COMMAND_LABEL = {
   forward: '전진 (Forward)',
@@ -102,21 +102,21 @@ export default function Dashboard() {
                 className="hero-robot-photo"
                 src={heroRobotImg}
                 alt="LostPatrol 순찰 로봇"
-                width={520}
-                height={473}
+                width={400}
+                height={460}
                 loading="eager"
               />
 
               <span className="hero-feature-badge hero-feature-badge--safety">
-                <ShieldCheck size={16} strokeWidth={2} />
+                <ShieldCheck size={20} strokeWidth={2} />
                 안전 순찰
               </span>
               <span className="hero-feature-badge hero-feature-badge--lost">
-                <Backpack size={16} strokeWidth={2} />
+                <Backpack size={20} strokeWidth={2} />
                 분실물 등록
               </span>
               <span className="hero-feature-badge hero-feature-badge--fire">
-                <Flame size={16} strokeWidth={2} />
+                <Flame size={20} strokeWidth={2} />
                 화재 감지
               </span>
             </div>
