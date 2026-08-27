@@ -357,6 +357,7 @@
   position: relative;
   aspect-ratio: 4 / 3;
   background: var(--surface-muted);
+  flex-shrink: 0;
 }
 
 .item-card__photo img {
@@ -384,6 +385,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1 1 auto;
 }
 
 /* ---------- Item card : placeholder(안내용, 실제 분실물 아님) ---------- */
@@ -407,6 +409,7 @@
 
 .item-card__body--placeholder {
   align-items: center;
+  justify-content: center;
   text-align: center;
 }
 
