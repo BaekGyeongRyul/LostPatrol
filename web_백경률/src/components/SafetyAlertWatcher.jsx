@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Flame, Volume2, VolumeX } from 'lucide-react'
+import { CheckCircle2, Flame, Volume2, VolumeX } from 'lucide-react'
 import { useSafetyStatus } from '../hooks/useSafetyStatus'
 import { useToast } from '../hooks/useToast'
 import { unlockAlarmAudio, startAlarm, stopAlarm } from '../lib/alarmSound'
@@ -12,11 +12,17 @@ export default function SafetyAlertWatcher() {
   const { safety } = useSafetyStatus()
   const showToast = useToast()
   const [soundMuted, setSoundMuted] = useState(false)
+  // 사용자가 "화재진압완료"로 이번 화재 이벤트를 직접 확인/해제했는지 여부.
+  // Supabase safety_status는 절대 건드리지 않는, 순수 UI 상태(session-only, 새로고침 시 초기화됨).
+  const [fireAcknowledged, setFireAcknowledged] = useState(false)
   const prevFireActiveRef = useRef(false)
   const prevSoundHighRef = useRef(false)
 
   const fireActive = Boolean(safety && (safety.fire.flameDetected || safety.fire.severity === 'danger'))
   const soundHigh = Boolean(safety && safety.sound.level === 'high')
+  // 실제로 큰 경보(Overlay + 배너 + 사이렌)를 띄울지 여부. 센서는 여전히 fire=true여도
+  // 사용자가 진압완료 처리했다면 더 이상 침해적인 경보를 다시 띄우지 않는다.
+  const showFireAlert = fireActive && !fireAcknowledged
 
   // 로봇 조작 키보드 입력을 가로채지 않는 별도 리스너로, 첫 클릭/키 입력 시 한 번만 AudioContext를 활성화한다.
   useEffect(() => {
@@ -37,13 +43,21 @@ export default function SafetyAlertWatcher() {
     prevFireActiveRef.current = fireActive
   }, [fireActive])
 
+  // 센서가 실제로 normal로 돌아오면 다음 화재를 다시 정상적으로 감지할 수 있도록
+  // 이번 이벤트에 대한 진압완료 처리 상태를 초기화한다.
   useEffect(() => {
-    if (fireActive && !soundMuted) {
+    if (!fireActive) {
+      setFireAcknowledged(false)
+    }
+  }, [fireActive])
+
+  useEffect(() => {
+    if (showFireAlert && !soundMuted) {
       startAlarm()
     } else {
       stopAlarm()
     }
-  }, [fireActive, soundMuted])
+  }, [showFireAlert, soundMuted])
 
   useEffect(() => () => stopAlarm(), [])
 
@@ -56,6 +70,16 @@ export default function SafetyAlertWatcher() {
 
   if (!fireActive) return null
 
+  if (!showFireAlert) {
+    // 센서는 아직 fire=true지만 사용자가 진압완료를 확인한 상태 — 침해적이지 않은 작은 배너만.
+    return (
+      <div className="fire-ack-banner" role="status">
+        <CheckCircle2 size={14} />
+        화재진압완료 처리됨 — 센서 상태를 확인 중입니다.
+      </div>
+    )
+  }
+
   return (
     <div className="fire-alert-overlay" role="alert" aria-live="assertive">
       <div className="fire-alert-overlay__message">
@@ -64,10 +88,16 @@ export default function SafetyAlertWatcher() {
           <p className="fire-alert-overlay__title">🔥 화재 위험 감지</p>
           <p className="fire-alert-overlay__subtitle">화재 위험이 감지되었습니다. 즉시 확인해주세요.</p>
         </div>
-        <button type="button" className="fire-alert-overlay__mute" onClick={() => setSoundMuted((m) => !m)}>
-          {soundMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-          {soundMuted ? '경보음 꺼짐' : '경보음 끄기'}
-        </button>
+        <div className="fire-alert-overlay__actions">
+          <button type="button" className="fire-alert-overlay__mute" onClick={() => setSoundMuted((m) => !m)}>
+            {soundMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            {soundMuted ? '경보음 꺼짐' : '경보음 끄기'}
+          </button>
+          <button type="button" className="fire-alert-overlay__ack" onClick={() => setFireAcknowledged(true)}>
+            <CheckCircle2 size={14} />
+            화재진압완료
+          </button>
+        </div>
       </div>
     </div>
   )

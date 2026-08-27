@@ -1138,11 +1138,60 @@
   background: rgba(255, 255, 255, 0.24);
 }
 
+.fire-alert-overlay__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.fire-alert-overlay__ack {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid #fff;
+  color: #7f1d1d;
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 7px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.fire-alert-overlay__ack:hover {
+  background: #f5f5f5;
+}
+
 @media (max-width: 640px) {
   .fire-alert-overlay__message {
     flex-wrap: wrap;
     top: 12px;
   }
+}
+
+/* ---------- Fire acknowledgement banner (진압완료 처리 후 비침해적 상태 표시) ---------- */
+
+.fire-ack-banner {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  max-width: min(420px, calc(100vw - 32px));
 }
 
 /* ---------- Live camera placeholder ---------- */
