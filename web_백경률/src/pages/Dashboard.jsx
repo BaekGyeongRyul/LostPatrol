@@ -6,10 +6,6 @@ import {
   CheckCircle2,
   ArrowRight,
   Activity,
-  Bot,
-  ScanSearch,
-  Database,
-  Monitor,
   ShieldCheck,
   Backpack,
   Flame,
@@ -125,51 +121,6 @@ export default function Dashboard() {
       </section>
 
       <div className="page">
-        <section className="flow-section">
-          <div className="flow-section__header">
-            <h2>AI 순찰 프로세스</h2>
-            <p>로봇 순찰부터 웹 관제까지, LostPatrol이 자동으로 처리하는 4단계입니다.</p>
-          </div>
-          <div className="flow-grid">
-            <div className="flow-card">
-              <span className="flow-card__icon">
-                <Bot size={20} strokeWidth={1.8} />
-              </span>
-              <p className="flow-card__label">
-                <span className="flow-card__num">1</span>순찰
-              </p>
-              <p className="flow-card__caption">Razbot 자동 순찰</p>
-            </div>
-            <div className="flow-card">
-              <span className="flow-card__icon">
-                <ScanSearch size={20} strokeWidth={1.8} />
-              </span>
-              <p className="flow-card__label">
-                <span className="flow-card__num">2</span>AI 탐지
-              </p>
-              <p className="flow-card__caption">카메라로 분실물 탐지</p>
-            </div>
-            <div className="flow-card">
-              <span className="flow-card__icon">
-                <Database size={20} strokeWidth={1.8} />
-              </span>
-              <p className="flow-card__label">
-                <span className="flow-card__num">3</span>데이터 등록
-              </p>
-              <p className="flow-card__caption">Supabase 자동 저장</p>
-            </div>
-            <div className="flow-card">
-              <span className="flow-card__icon">
-                <Monitor size={20} strokeWidth={1.8} />
-              </span>
-              <p className="flow-card__label">
-                <span className="flow-card__num">4</span>웹 관제
-              </p>
-              <p className="flow-card__caption">실시간 확인·제어</p>
-            </div>
-          </div>
-        </section>
-
         <section className="stat-grid">
           <StatCard icon={PackageSearch} label="전체 발견 분실물" value={stats.total} tone="neutral" />
           <StatCard icon={AlertCircle} label="확인 필요" value={stats.needsReview} tone="amber" />
