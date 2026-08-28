@@ -89,6 +89,17 @@ MOVE_SPEED = 150
 # 순찰 전용으로 더 느린 속도를 따로 둠(2026.08.27).
 PATROL_SPEED = 80
 
+# 시연 영상용 임시 모드 — True면 patrol_start가 실제 라인트레이싱 대신
+# "앞으로 70cm → 우회전 → 앞으로 30cm" 고정 시퀀스를 수행한다(2026.08.27).
+# 실제 라인트레이싱 코드는 그대로 아래에 남겨뒀으니, 시연 끝나면 False로
+# 되돌리면 다시 원래대로 동작한다.
+PATROL_DEMO_MODE = True
+
+# 아래 세 값은 초 단위 추정치 — 실물로 보면서 cm에 맞게 조정 필요.
+DEMO_FORWARD1_SEC = 2.0   # 약 70cm
+DEMO_TURN_SEC = 0.6       # 우회전 약 90도
+DEMO_FORWARD2_SEC = 1.0   # 약 30cm
+
 # 이동 명령이 실제로 걸리는 시간(초). mock 모드에서는 흉내내는 sleep 시간으로,
 # 실물 모드에서는 "이 시간만큼 움직이고 자동으로 멈춘다"는 의미로 쓰인다.
 MOVE_DURATION_SEC = 1.5
@@ -428,6 +439,35 @@ def _patrol_steer(l1: int, l2: int, r1: int, r2: int) -> None:
         _car.Car_Stop()
 
 
+def _patrol_scripted_demo() -> None:
+    """
+    시연 영상용 고정 시퀀스: 앞으로 70cm → 우회전(약 90도) → 앞으로 30cm.
+    실제 라인 센서를 안 보고 그냥 시간 기반으로 움직인다 — PATROL_DEMO_MODE가
+    True일 때만 _patrol_loop() 대신 이게 호출된다.
+    """
+    print("[MOCK ROBOT] 순찰(시연 시퀀스) 시작: 전진70cm→우회전→전진30cm")
+    _set_state("moving", "patrol_start")
+    try:
+        if _car is not None:
+            _car.Car_Run(PATROL_SPEED, PATROL_SPEED)
+            time.sleep(DEMO_FORWARD1_SEC)
+            _car.Car_Stop()
+
+            _car.Car_Spin_Right(PATROL_SPEED, PATROL_SPEED)
+            time.sleep(DEMO_TURN_SEC)
+            _car.Car_Stop()
+
+            _car.Car_Run(PATROL_SPEED, PATROL_SPEED)
+            time.sleep(DEMO_FORWARD2_SEC)
+            _car.Car_Stop()
+        else:
+            time.sleep(DEMO_FORWARD1_SEC + DEMO_TURN_SEC + DEMO_FORWARD2_SEC)  # mock: 흉내만
+        print("[MOCK ROBOT] 순찰(시연 시퀀스) 종료")
+    finally:
+        _patrol_active.clear()
+        _set_state("idle", "patrol_stop")
+
+
 def _patrol_loop() -> None:
     """
     라인트레이싱 기반 자동순찰 루프 (SLAM 아님 — 바닥에 그려진 정해진
@@ -438,6 +478,9 @@ def _patrol_loop() -> None:
     - 수동 명령(forward/backward/left/right/stop) — 안전 정지가 항상 우선
     - 장애물 감지(_check_obstacle)
     """
+    if PATROL_DEMO_MODE:
+        _patrol_scripted_demo()
+        return
     # 이 함수는 별도 스레드에서 돈다 — _handle_command의 try/except는
     # "스레드를 시작시키는 순간"만 감싸지, 스레드 안에서 나중에 터지는
     # 예외는 못 잡는다(파이썬 스레드 예외는 부모로 전파되지 않음). 그래서
