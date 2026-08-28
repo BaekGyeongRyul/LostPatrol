@@ -45,6 +45,10 @@
        분리하기로 함(2026.08.27). 우노는 원래 하던 센서+LCD만 담당하고,
        flame/sound 판정 결과만 디지털 신호 2개(D8/D9)로 ESP32에 넘겨준다
        (WiFi나 라즈베리파이 경유 없이 우노↔ESP32 직결 — 가장 단순한 방식).
+  12차: temp_c가 계속 널뛰다가(9도~134도 등) 원인을 찾아보니 LM35DZ
+       다리가 물리적으로 부러져 있었음(2026.08.27) — 그래서 접촉이
+       불안정해서 뜬 값이 랜덤하게 잡혔던 것. 센서 교체 전까지는 TEMP_PIN
+       읽기를 빼고 고정값(FIXED_TEMP_C)을 보내도록 임시 조치.
 */
 
 #include <Wire.h>
@@ -54,7 +58,12 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);  // 주소, 컬럼 수, 행 수
 
 const int FLAME_PIN = A0;  // 아날로그로 읽음 (포토트랜지스터+저항 회로)
 const int SOUND_PIN = A2;  // 디지털로 읽음 (DO, 트리머로 감도 캘리브레이션 완료)
-const int TEMP_PIN = A1;   // 아날로그 (LM35DZ)
+
+// LM35DZ 다리가 부러져서(2026.08.27) 실물 온도 측정을 일단 뺌 — 대신
+// 고정된 정상값을 보내서 fire 판정(flame or temp>=DANGER)이 온도쪽
+// 이상값 때문에 오작동하지 않게 함. 센서 교체/수리되면 TEMP_PIN 살리고
+// readAverage(TEMP_PIN) 다시 쓰면 됨.
+const float FIXED_TEMP_C = 25.0;
 
 // ESP32로 flame/sound 판정 결과를 그대로 내보내는 디지털 출력 핀.
 // ESP32는 이 두 핀만 읽어서 얼굴 표정을 결정한다 — 별도 프로토콜 없이
@@ -125,13 +134,12 @@ void updateLcd(Mood mood, float tempC) {
 void loop() {
   int flameRaw = readAverage(FLAME_PIN);
   int soundRaw = digitalRead(SOUND_PIN);
-  int tempRaw = readAverage(TEMP_PIN);
 
   int flame = (flameRaw > FLAME_THRESHOLD) ? 1 : 0;
   int sound = (soundRaw == HIGH) ? 1 : 0;
 
-  // LM35DZ: 10mV/°C, Arduino 5V 기준전압 기준 변환 공식
-  float tempC = (tempRaw * 5.0 / 1024.0) * 100.0;
+  // LM35DZ 다리 파손으로 실물 측정 대신 고정값 사용 (위 FIXED_TEMP_C 참고)
+  float tempC = FIXED_TEMP_C;
 
   Serial.print("{\"flame\": ");
   Serial.print(flame);
