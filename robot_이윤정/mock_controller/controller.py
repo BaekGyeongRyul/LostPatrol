@@ -413,13 +413,18 @@ def _patrol_steer(l1: int, l2: int, r1: int, r2: int) -> None:
     """
     if _car is None:
         return
+    print(f"[DEBUG] tracking l1={l1} l2={l2} r1={r1} r2={r2}")  # 임시 디버그 — 원인 확인되면 지울 것
     if l2 == 0 and r1 == 0:
+        print("[DEBUG] -> Car_Run")
         _car.Car_Run(MOVE_SPEED, MOVE_SPEED)
     elif l1 == 0 or l2 == 0:
+        print("[DEBUG] -> Car_Spin_Left")
         _car.Car_Spin_Left(MOVE_SPEED, MOVE_SPEED)
     elif r1 == 0 or r2 == 0:
+        print("[DEBUG] -> Car_Spin_Right")
         _car.Car_Spin_Right(MOVE_SPEED, MOVE_SPEED)
     else:
+        print("[DEBUG] -> Car_Stop (라인 놓침)")
         _car.Car_Stop()
 
 
