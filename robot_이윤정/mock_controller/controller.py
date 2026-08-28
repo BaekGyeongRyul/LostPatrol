@@ -105,8 +105,15 @@ PATROL_DEMO_MODE = True
 # 근처 값으로 줄임(2026.08.27).
 DEMO_FORWARD1_SEC = 1.7   # 약 60cm
 DEMO_TURN_SPEED = 150     # 회전 전용 속도 — PATROL_SPEED보다 빠르게(힘 부족 보완)
-DEMO_TURN_SEC = 0.35      # 우회전 약 90도 (1.5초=거의 360도였음, 대폭 줄임)
 DEMO_FORWARD2_SEC = 1.0   # 약 30cm
+
+# 4차(2026.08.27): 0.35초 한 번에 돌리니 조금 부족 + "한번에 안 돌고 끊어서
+# 조금씩 돌았으면 좋겠다"는 요청 → 짧게 돌고 멈추고를 반복하는 방식으로 변경.
+# 총 회전량 = DEMO_TURN_BURST_SEC * DEMO_TURN_BURST_COUNT, 예전 0.35초보다
+# 살짝 늘려서(0.12*4=0.48초) 조금 더 돌게 함.
+DEMO_TURN_BURST_SEC = 0.12        # 한 번에 도는 시간
+DEMO_TURN_BURST_PAUSE_SEC = 0.15  # burst 사이 멈추는 시간
+DEMO_TURN_BURST_COUNT = 4         # 몇 번 끊어서 돌지
 
 # 이동 명령이 실제로 걸리는 시간(초). mock 모드에서는 흉내내는 sleep 시간으로,
 # 실물 모드에서는 "이 시간만큼 움직이고 자동으로 멈춘다"는 의미로 쓰인다.
@@ -462,16 +469,20 @@ def _patrol_scripted_demo() -> None:
             _car.Car_Stop()
             time.sleep(0.3)  # 정지->방향전환 사이 짧게 쉬어서 모터 드라이버가 명령 확실히 받게 함
 
-            _car.Car_Spin_Right(DEMO_TURN_SPEED, DEMO_TURN_SPEED)
-            time.sleep(DEMO_TURN_SEC)
-            _car.Car_Stop()
-            time.sleep(0.3)
+            # 한 번에 쭉 돌리지 않고, 짧게 돌고 멈추기를 반복해서 끊어서 도는
+            # 느낌을 낸다 (한 번에 매끄럽게 돌기보다 이렇게 하고 싶다는 요청).
+            for _ in range(DEMO_TURN_BURST_COUNT):
+                _car.Car_Spin_Right(DEMO_TURN_SPEED, DEMO_TURN_SPEED)
+                time.sleep(DEMO_TURN_BURST_SEC)
+                _car.Car_Stop()
+                time.sleep(DEMO_TURN_BURST_PAUSE_SEC)
 
             _car.Car_Run(PATROL_SPEED, PATROL_SPEED)
             time.sleep(DEMO_FORWARD2_SEC)
             _car.Car_Stop()
         else:
-            time.sleep(DEMO_FORWARD1_SEC + DEMO_TURN_SEC + DEMO_FORWARD2_SEC)  # mock: 흉내만
+            total_turn = (DEMO_TURN_BURST_SEC + DEMO_TURN_BURST_PAUSE_SEC) * DEMO_TURN_BURST_COUNT
+            time.sleep(DEMO_FORWARD1_SEC + total_turn + DEMO_FORWARD2_SEC)  # mock: 흉내만
         print("[MOCK ROBOT] 순찰(시연 시퀀스) 종료")
     finally:
         _patrol_active.clear()
