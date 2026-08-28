@@ -8,7 +8,9 @@
   바꾸면, 라즈베리파이 카메라 없이도 분실물 감지 파이프라인을 그대로 쓸 수 있다.
 
   준비:
-  1. 아래 WIFI_SSID / WIFI_PASSWORD를 본인 WiFi로 채우기
+  1. 이 폴더에 있는 wifi_secrets.h.example을 wifi_secrets.h로 복사하고
+     본인 WiFi 정보로 채우기 (wifi_secrets.h는 .gitignore에 있어서 git에
+     안 올라감 — 실제 비밀번호를 이 .ino 파일에 직접 쓰지 말 것!)
   2. 보드 설정: Tools → Board → XIAO_ESP32S3, PSRAM: OPI PSRAM 로 켜기
      (카메라 프레임버퍼 저장에 PSRAM이 필요함 — 꺼져있으면 초기화 실패함)
   3. 업로드 후 시리얼 모니터(115200 baud)에서 나오는 IP 주소 확인
@@ -17,6 +19,7 @@
 
 #include "esp_camera.h"
 #include <WiFi.h>
+#include "wifi_secrets.h"  // WIFI_SSID/WIFI_PASSWORD 정의 — git에 안 올라가는 파일
 
 // XIAO ESP32S3 Sense 카메라 핀 정의 (보드 자체 카메라 커넥터용, 고정값)
 #define PWDN_GPIO_NUM     -1
@@ -35,9 +38,6 @@
 #define VSYNC_GPIO_NUM    38
 #define HREF_GPIO_NUM     47
 #define PCLK_GPIO_NUM     13
-
-const char* WIFI_SSID = "여기에_와이파이_이름";
-const char* WIFI_PASSWORD = "여기에_비밀번호";
 
 WiFiServer server(80);
 

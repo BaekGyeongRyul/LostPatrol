@@ -4,6 +4,7 @@ dist-share/
 .env
 .env.*
 !.env.example
+wifi_secrets.h
 __pycache__/
 *.pyc
 .DS_Store
