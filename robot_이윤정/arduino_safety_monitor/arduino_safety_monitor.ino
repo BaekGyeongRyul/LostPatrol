@@ -71,9 +71,9 @@ const float FIXED_TEMP_C = 25.0;
 const int FLAME_OUT_PIN = 8;
 const int SOUND_OUT_PIN = 9;
 
-// 화재 감지 시 켜지는 빨간 LED. 긴다리(+)→D7, 짧은다리(-)→GND
+// 화재 감지 시 켜지는 빨간 LED. 긴다리(+)→D2, 짧은다리(-)→GND
 // (사이에 220~330Ω 저항 있으면 같이 연결)
-const int FIRE_LED_PIN = 7;
+const int FIRE_LED_PIN = 2;
 
 // 실물 테스트로 확정(2026.08.26) — 라이터 반응 시 LED 켜지는 것까지 확인.
 const int FLAME_THRESHOLD = 5;
