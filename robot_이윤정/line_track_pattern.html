@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>라인트레이싱 트랙 (A4 인쇄용)</title>
+<style>
+  @page { size: A4; margin: 0; }
+  body { margin: 0; }
+  .note {
+    font-family: sans-serif;
+    text-align: center;
+    padding: 8px 0;
+    font-size: 12px;
+    color: #555;
+  }
+  @media print {
+    .note { display: none; }
+  }
+  svg {
+    display: block;
+    margin: 0 auto;
+  }
+</style>
+</head>
+<body>
+  <div class="note">
+    인쇄 시 "실제 크기(100%)"로 설정하세요 (여백/맞춤 아님). 검은 선 두께는 약 20mm입니다.
+  </div>
+  <svg width="210mm" height="297mm" viewBox="0 0 210 297">
+    <rect width="210" height="297" fill="white" />
+    <!-- 둥근 사각형(트랙) 중심선 기준, stroke-width로 실제 선 두께(20mm) 표현 -->
+    <rect x="30" y="45" width="150" height="210"
+          rx="45" ry="45"
+          fill="none" stroke="black" stroke-width="20" />
+  </svg>
+</body>
+</html>
