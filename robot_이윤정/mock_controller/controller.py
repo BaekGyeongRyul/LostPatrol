@@ -95,11 +95,15 @@ PATROL_SPEED = 80
 # 되돌리면 다시 원래대로 동작한다.
 PATROL_DEMO_MODE = True
 
-# 아래 세 값은 초 단위 추정치 — 실물로 보면서 cm/각도에 맞게 계속 조정 중.
-# 1차: 2.0/0.6/1.0 → 실물로 60cm쪽으로 줄이고 싶다 + 0.6초로는 90도 부족
-# 2차(2026.08.27): 60cm 비례로 줄이고, 회전 시간 늘림 — 더 필요하면 계속 조정.
+# 아래 값들은 초 단위 추정치 — 실물로 보면서 cm/각도에 맞게 계속 조정 중.
+# 1차: 2.0/0.6/1.0 → 60cm쪽으로 줄이고 싶다 + 0.6초로는 90도 부족
+# 2차: 1.7/1.0/1.0 → 60cm는 맞았는데(55cm), 여전히 90도 부족
+# 3차(2026.08.27): PATROL_SPEED(80)로는 회전 힘이 약해서 제자리 회전이
+# 잘 안 먹는 걸로 보여 회전만 더 빠른 속도(DEMO_TURN_SPEED)로 분리하고
+# 시간도 늘림 — 더 필요하면 계속 조정.
 DEMO_FORWARD1_SEC = 1.7   # 약 60cm
-DEMO_TURN_SEC = 1.0       # 우회전 약 90도 (0.6초로는 부족했음, 늘림)
+DEMO_TURN_SPEED = 150     # 회전 전용 속도 — PATROL_SPEED보다 빠르게(힘 부족 보완)
+DEMO_TURN_SEC = 1.5       # 우회전 약 90도
 DEMO_FORWARD2_SEC = 1.0   # 약 30cm
 
 # 이동 명령이 실제로 걸리는 시간(초). mock 모드에서는 흉내내는 sleep 시간으로,
@@ -454,10 +458,12 @@ def _patrol_scripted_demo() -> None:
             _car.Car_Run(PATROL_SPEED, PATROL_SPEED)
             time.sleep(DEMO_FORWARD1_SEC)
             _car.Car_Stop()
+            time.sleep(0.3)  # 정지->방향전환 사이 짧게 쉬어서 모터 드라이버가 명령 확실히 받게 함
 
-            _car.Car_Spin_Right(PATROL_SPEED, PATROL_SPEED)
+            _car.Car_Spin_Right(DEMO_TURN_SPEED, DEMO_TURN_SPEED)
             time.sleep(DEMO_TURN_SEC)
             _car.Car_Stop()
+            time.sleep(0.3)
 
             _car.Car_Run(PATROL_SPEED, PATROL_SPEED)
             time.sleep(DEMO_FORWARD2_SEC)
