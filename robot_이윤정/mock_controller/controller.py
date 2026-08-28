@@ -89,32 +89,6 @@ MOVE_SPEED = 150
 # 순찰 전용으로 더 느린 속도를 따로 둠(2026.08.27).
 PATROL_SPEED = 80
 
-# 시연 영상용 임시 모드 — True면 patrol_start가 실제 라인트레이싱 대신
-# "앞으로 70cm → 우회전 → 앞으로 30cm" 고정 시퀀스를 수행한다(2026.08.27).
-# 실제 라인트레이싱 코드는 그대로 아래에 남겨뒀으니, 시연 끝나면 False로
-# 되돌리면 다시 원래대로 동작한다.
-PATROL_DEMO_MODE = True
-
-# 아래 값들은 초 단위 추정치 — 실물로 보면서 cm/각도에 맞게 계속 조정 중.
-# 1차: 2.0/0.6/1.0 → 60cm쪽으로 줄이고 싶다 + 0.6초로는 90도 부족
-# 2차: 1.7/1.0/1.0 → 60cm는 맞았는데(55cm), 여전히 90도 부족
-# 3차: PATROL_SPEED(80)로는 회전 힘이 약해서 제자리 회전이 안 먹혀서
-# 회전만 더 빠른 속도(150, 웹 Right 버튼과 동일)로 분리 → 이번엔 도는데
-# 1.5초는 거의 한바퀴(360도) 돌아버림 — SPIN_DURATION_SEC(0.3초, left/right
-# 웹 명령용으로 이미 검증된 값)이 대략 90도에 더 가까울 것으로 보여 그
-# 근처 값으로 줄임(2026.08.27).
-DEMO_FORWARD1_SEC = 1.7   # 약 60cm
-DEMO_TURN_SPEED = 150     # 회전 전용 속도 — PATROL_SPEED보다 빠르게(힘 부족 보완)
-DEMO_FORWARD2_SEC = 1.0   # 약 30cm
-
-# 4차(2026.08.27): 0.35초 한 번에 돌리니 조금 부족 + "한번에 안 돌고 끊어서
-# 조금씩 돌았으면 좋겠다"는 요청 → 짧게 돌고 멈추고를 반복하는 방식으로 변경.
-# 총 회전량 = DEMO_TURN_BURST_SEC * DEMO_TURN_BURST_COUNT, 예전 0.35초보다
-# 살짝 늘려서(0.12*4=0.48초) 조금 더 돌게 함.
-DEMO_TURN_BURST_SEC = 0.12        # 한 번에 도는 시간
-DEMO_TURN_BURST_PAUSE_SEC = 0.15  # burst 사이 멈추는 시간
-DEMO_TURN_BURST_COUNT = 4         # 몇 번 끊어서 돌지
-
 # 이동 명령이 실제로 걸리는 시간(초). mock 모드에서는 흉내내는 sleep 시간으로,
 # 실물 모드에서는 "이 시간만큼 움직이고 자동으로 멈춘다"는 의미로 쓰인다.
 MOVE_DURATION_SEC = 1.5
@@ -454,41 +428,6 @@ def _patrol_steer(l1: int, l2: int, r1: int, r2: int) -> None:
         _car.Car_Stop()
 
 
-def _patrol_scripted_demo() -> None:
-    """
-    시연 영상용 고정 시퀀스: 앞으로 70cm → 우회전(약 90도) → 앞으로 30cm.
-    실제 라인 센서를 안 보고 그냥 시간 기반으로 움직인다 — PATROL_DEMO_MODE가
-    True일 때만 _patrol_loop() 대신 이게 호출된다.
-    """
-    print("[MOCK ROBOT] 순찰(시연 시퀀스) 시작: 전진70cm→우회전→전진30cm")
-    _set_state("moving", "patrol_start")
-    try:
-        if _car is not None:
-            _car.Car_Run(PATROL_SPEED, PATROL_SPEED)
-            time.sleep(DEMO_FORWARD1_SEC)
-            _car.Car_Stop()
-            time.sleep(0.3)  # 정지->방향전환 사이 짧게 쉬어서 모터 드라이버가 명령 확실히 받게 함
-
-            # 한 번에 쭉 돌리지 않고, 짧게 돌고 멈추기를 반복해서 끊어서 도는
-            # 느낌을 낸다 (한 번에 매끄럽게 돌기보다 이렇게 하고 싶다는 요청).
-            for _ in range(DEMO_TURN_BURST_COUNT):
-                _car.Car_Spin_Right(DEMO_TURN_SPEED, DEMO_TURN_SPEED)
-                time.sleep(DEMO_TURN_BURST_SEC)
-                _car.Car_Stop()
-                time.sleep(DEMO_TURN_BURST_PAUSE_SEC)
-
-            _car.Car_Run(PATROL_SPEED, PATROL_SPEED)
-            time.sleep(DEMO_FORWARD2_SEC)
-            _car.Car_Stop()
-        else:
-            total_turn = (DEMO_TURN_BURST_SEC + DEMO_TURN_BURST_PAUSE_SEC) * DEMO_TURN_BURST_COUNT
-            time.sleep(DEMO_FORWARD1_SEC + total_turn + DEMO_FORWARD2_SEC)  # mock: 흉내만
-        print("[MOCK ROBOT] 순찰(시연 시퀀스) 종료")
-    finally:
-        _patrol_active.clear()
-        _set_state("idle", "patrol_stop")
-
-
 def _patrol_loop() -> None:
     """
     라인트레이싱 기반 자동순찰 루프 (SLAM 아님 — 바닥에 그려진 정해진
@@ -499,9 +438,6 @@ def _patrol_loop() -> None:
     - 수동 명령(forward/backward/left/right/stop) — 안전 정지가 항상 우선
     - 장애물 감지(_check_obstacle)
     """
-    if PATROL_DEMO_MODE:
-        _patrol_scripted_demo()
-        return
     # 이 함수는 별도 스레드에서 돈다 — _handle_command의 try/except는
     # "스레드를 시작시키는 순간"만 감싸지, 스레드 안에서 나중에 터지는
     # 예외는 못 잡는다(파이썬 스레드 예외는 부모로 전파되지 않음). 그래서
