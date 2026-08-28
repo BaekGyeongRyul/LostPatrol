@@ -1,25 +1,22 @@
 /*
-  esp32_camera_backup.ino — XIAO ESP32S3 Sense를 임시 카메라로 쓰기 위한
-  최소 웹서버. 라즈베리파이 CSI 카메라(리본 케이블)가 갑자기 인식이 안 되는
-  문제(2026.08.27, 시연 촬영 도중 발생)의 백업 대안으로 작성.
+  esp32_camera_backup.ino — XIAO ESP32S3 Sense를 USB 시리얼로 라즈베리파이에
+  직결해서 쓰는 백업 카메라. 라즈베리파이 CSI 카메라(리본 케이블) 인식 문제
+  (2026.08.27)의 대안으로 작성. WiFi 버전은 발열 문제로 이 방식으로 변경.
 
-  WiFi로 접속해서 http://<이 보드의 IP>/capture 로 요청하면 사진 한 장(JPEG)을
-  돌려준다. controller.py가 rpicam-still 대신 이 주소에서 사진을 받아오도록
-  바꾸면, 라즈베리파이 카메라 없이도 분실물 감지 파이프라인을 그대로 쓸 수 있다.
+  동작: 라즈베리파이가 시리얼로 "CAPTURE\n"을 보내면, 이 보드가 사진을
+  찍어서 "다음 줄에 파일 크기(바이트 수), 그 다음 그만큼의 JPEG 바이트"
+  순서로 돌려준다. 아두이노 우노 안전센서(JSON 시리얼)와 같은 원리 —
+  USB 케이블 하나로 전원+통신 다 됨, WiFi 불필요.
 
   준비:
-  1. 이 폴더에 있는 wifi_secrets.h.example을 wifi_secrets.h로 복사하고
-     본인 WiFi 정보로 채우기 (wifi_secrets.h는 .gitignore에 있어서 git에
-     안 올라감 — 실제 비밀번호를 이 .ino 파일에 직접 쓰지 말 것!)
-  2. 보드 설정: Tools → Board → XIAO_ESP32S3, PSRAM: OPI PSRAM 로 켜기
-     (카메라 프레임버퍼 저장에 PSRAM이 필요함 — 꺼져있으면 초기화 실패함)
-  3. 업로드 후 시리얼 모니터(115200 baud)에서 나오는 IP 주소 확인
-  4. 브라우저로 http://<IP>/capture 접속해서 사진 뜨는지 확인
+  1. 보드 설정: Tools → Board → XIAO_ESP32S3, PSRAM: OPI PSRAM 켜기
+     (카메라 프레임버퍼 저장에 필요 — 꺼져있으면 초기화 실패함)
+  2. 업로드 후 USB로 라즈베리파이에 연결
+  3. Pi에서 시리얼 포트 확인(`ls /dev/ttyACM* /dev/ttyUSB*`) 후
+     esp32_cam_client.py로 테스트
 */
 
 #include "esp_camera.h"
-#include <WiFi.h>
-#include "wifi_secrets.h"  // WIFI_SSID/WIFI_PASSWORD 정의 — git에 안 올라가는 파일
 
 // XIAO ESP32S3 Sense 카메라 핀 정의 (보드 자체 카메라 커넥터용, 고정값)
 #define PWDN_GPIO_NUM     -1
@@ -38,8 +35,6 @@
 #define VSYNC_GPIO_NUM    38
 #define HREF_GPIO_NUM     47
 #define PCLK_GPIO_NUM     13
-
-WiFiServer server(80);
 
 void startCamera() {
   camera_config_t config;
@@ -69,61 +64,31 @@ void startCamera() {
 
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
-    Serial.printf("카메라 초기화 실패: 0x%x (PSRAM이 꺼져있으면 이 에러가 남)\n", err);
+    Serial.printf("CAMERA_INIT_FAILED 0x%x\n", err);
   } else {
-    Serial.println("카메라 초기화 성공");
+    Serial.println("CAMERA_READY");
   }
-}
-
-void handleCapture(WiFiClient& client) {
-  camera_fb_t* fb = esp_camera_fb_get();
-  if (!fb) {
-    client.println("HTTP/1.1 500 Internal Server Error");
-    client.println();
-    return;
-  }
-  client.println("HTTP/1.1 200 OK");
-  client.println("Content-Type: image/jpeg");
-  client.print("Content-Length: ");
-  client.println(fb->len);
-  client.println("Connection: close");
-  client.println();
-  client.write(fb->buf, fb->len);
-  esp_camera_fb_return(fb);
 }
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
-
   startCamera();
-
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  Serial.print("WiFi 연결 중");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println();
-  Serial.print("IP 주소: ");
-  Serial.println(WiFi.localIP());
-  Serial.println("사진 확인: http://<위 IP 주소>/capture");
-
-  server.begin();
 }
 
 void loop() {
-  WiFiClient client = server.available();
-  if (!client) return;
-
-  String request = client.readStringUntil('\r');
-  client.flush();
-
-  if (request.indexOf("GET /capture") >= 0) {
-    handleCapture(client);
-  } else {
-    client.println("HTTP/1.1 404 Not Found");
-    client.println();
+  if (Serial.available()) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+    if (cmd == "CAPTURE") {
+      camera_fb_t* fb = esp_camera_fb_get();
+      if (!fb) {
+        Serial.println("0");  // 실패 시 크기 0 전송
+        return;
+      }
+      Serial.println(fb->len);   // 먼저 바이트 수를 한 줄로 전송
+      Serial.write(fb->buf, fb->len);  // 그 다음 JPEG 원본 바이트 전송
+      esp_camera_fb_return(fb);
+    }
   }
-  client.stop();
 }
