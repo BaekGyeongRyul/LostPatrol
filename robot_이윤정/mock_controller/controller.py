@@ -84,6 +84,11 @@ WEBCAM_INDEX = 0  # 노트북 기본 웹캠. 카메라가 여러 개면 1, 2...�
 # 모터 속도, Yahboom 예제 기본값 그대로(0~255 범위)
 MOVE_SPEED = 150
 
+# 자동순찰 중 조향 속도는 MOVE_SPEED보다 낮게 — 실물 테스트에서 꺾을 때
+# 너무 빨리 돌아서 라인을 넘어가버리고(오버슈트) 이탈하는 문제가 있어서
+# 순찰 전용으로 더 느린 속도를 따로 둠(2026.08.27).
+PATROL_SPEED = 80
+
 # 이동 명령이 실제로 걸리는 시간(초). mock 모드에서는 흉내내는 sleep 시간으로,
 # 실물 모드에서는 "이 시간만큼 움직이고 자동으로 멈춘다"는 의미로 쓰인다.
 MOVE_DURATION_SEC = 1.5
@@ -413,18 +418,13 @@ def _patrol_steer(l1: int, l2: int, r1: int, r2: int) -> None:
     """
     if _car is None:
         return
-    print(f"[DEBUG] tracking l1={l1} l2={l2} r1={r1} r2={r2}")  # 임시 디버그 — 원인 확인되면 지울 것
     if l2 == 0 and r1 == 0:
-        print("[DEBUG] -> Car_Run")
-        _car.Car_Run(MOVE_SPEED, MOVE_SPEED)
+        _car.Car_Run(PATROL_SPEED, PATROL_SPEED)
     elif l1 == 0 or l2 == 0:
-        print("[DEBUG] -> Car_Spin_Left")
-        _car.Car_Spin_Left(MOVE_SPEED, MOVE_SPEED)
+        _car.Car_Spin_Left(PATROL_SPEED, PATROL_SPEED)
     elif r1 == 0 or r2 == 0:
-        print("[DEBUG] -> Car_Spin_Right")
-        _car.Car_Spin_Right(MOVE_SPEED, MOVE_SPEED)
+        _car.Car_Spin_Right(PATROL_SPEED, PATROL_SPEED)
     else:
-        print("[DEBUG] -> Car_Stop (라인 놓침)")
         _car.Car_Stop()
 
 
