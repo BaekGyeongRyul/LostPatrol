@@ -57,8 +57,14 @@ const unsigned long HAPPY_MAX_GAP_MS = 15000;   // 다음 웃음까지 최대 �
 
 void setup() {
   Serial.begin(9600);
-  pinMode(FLAME_IN_PIN, INPUT);
-  pinMode(SOUND_IN_PIN, INPUT);
+  // 우노 없이 ESP32만 단독으로 켜둘 때(순찰 촬영 등) FLAME_IN_PIN/
+  // SOUND_IN_PIN이 아무것도 안 꽂힌 플로팅 상태가 되면 잡음 때문에
+  // 랜덤하게 HIGH로 잡혀서 갑자기 놀란 표정이 튀는 문제가 있었다
+  // (2026.08.30). INPUT_PULLDOWN으로 바꿔서, 우노가 없을 땐 항상 LOW
+  // (평온)로 떨어지게 함 — 우노가 연결되면 우노가 신호를 능동적으로
+  // 밀어주므로 풀다운 저항 정도는 무시되고 평소처럼 정상 동작한다.
+  pinMode(FLAME_IN_PIN, INPUT_PULLDOWN);
+  pinMode(SOUND_IN_PIN, INPUT_PULLDOWN);
 
   Wire.begin(SDA_PIN, SCL_PIN);
   if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
