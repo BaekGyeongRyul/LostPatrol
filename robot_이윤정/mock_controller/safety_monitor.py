@@ -36,7 +36,7 @@ except ImportError:
 SERIAL_PORT = os.environ.get("SERIAL_PORT")  # 예: Windows "COM5", 라즈베리파이 "/dev/ttyUSB0"
 SERIAL_BAUD = int(os.environ.get("SERIAL_BAUD", "9600"))
 
-READ_INTERVAL_SEC = 2  # 이 주기로 센서 값을 읽어서 Supabase에 반영
+READ_INTERVAL_SEC = 1  # 이 주기로 센서 값을 읽어서 Supabase에 반영
 
 # TBD - 팀 협의 후 확정. 실물 센서로 캘리브레이션 전까지의 자리표시자 값.
 TEMPERATURE_WARNING_C = 40
@@ -69,8 +69,23 @@ def _open_serial():
 
 
 def _read_real(ser) -> dict:
-    """Arduino가 보낸 한 줄(JSON)을 읽어서 파싱한다. 실패하면 None."""
-    line = ser.readline().decode("utf-8", errors="ignore").strip()
+    """Arduino가 보낸 줄(JSON)을 읽어서 파싱한다. 실패하면 None.
+
+    아두이노가 이 함수의 호출 주기(READ_INTERVAL_SEC)보다 빠르게 계속
+    값을 보내고 있어서, 매번 한 줄만 readline()하면 시리얼 입력 버퍼에
+    안 읽은 줄들이 계속 쌓인다. 그러면 항상 "쌓인 것 중 제일 오래된 줄"을
+    읽게 되어 시간이 지날수록 웹에 반영되는 값이 점점 과거 값으로 밀리는
+    지연 누적 문제가 생긴다(2026.08.29 발견 — 오래 켜둘수록 점점 느려지는
+    것처럼 보였던 원인). 그래서 버퍼에 쌓인 줄을 전부 읽어서 가장 최신
+    줄만 쓰고 나머지는 버린다 — 지연이 누적되지 않고 항상 최신 상태 유지.
+    """
+    line = None
+    while ser.in_waiting:
+        candidate = ser.readline().decode("utf-8", errors="ignore").strip()
+        if candidate:
+            line = candidate
+    if line is None:
+        line = ser.readline().decode("utf-8", errors="ignore").strip()
     if not line:
         return None
     try:
