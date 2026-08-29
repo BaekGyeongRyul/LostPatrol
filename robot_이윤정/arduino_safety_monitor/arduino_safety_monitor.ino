@@ -85,8 +85,12 @@ const int FIRE_LED_PIN = 7;
 // 큰 소리 감지 시 켜지는 LED. 긴다리(+)→D13, 짧은다리(-)→GND
 const int SOUND_LED_PIN = 13;
 
-// 실물 테스트로 확정(2026.08.26) — 라이터 반응 시 LED 켜지는 것까지 확인.
-const int FLAME_THRESHOLD = 5;
+// 2026.08.26엔 5로 확정했었으나, 2026.08.29 재측정 결과 평소값 0~2,
+// 실제 불꽃 반응 시 1023(ADC 최댓값)으로 나와서 5는 너무 타이트했음
+// (전원(배터리/USB) 종류에 따라 잡음 몇 카운트 차이로도 오작동하는 원인이 됨).
+// 여유 있게 100으로 올림 — 평소값보다는 훨씬 높고, 실제 불꽃 값(1023)보다는
+// 훨씬 낮아서 노이즈에 안정적임.
+const int FLAME_THRESHOLD = 100;
 
 const int SAMPLE_COUNT = 10;   // 평균낼 샘플 개수
 const int SAMPLE_DELAY_MS = 5; // 샘플 사이 간격
