@@ -47,6 +47,14 @@ RoboEyes<Adafruit_SSD1306> eyes(display);
 enum Mood { MOOD_NORMAL, MOOD_FIRE, MOOD_LOUD };
 Mood lastMood = MOOD_NORMAL;
 
+// 평소(NORMAL)에 가끔 웃는 표정을 잠깐 보여주기 위한 타이머.
+bool isHappyNow = false;
+unsigned long happyStartMs = 0;
+unsigned long nextHappyMs = 0;
+const unsigned long HAPPY_DURATION_MS = 2000;   // 웃는 표정 유지 시간
+const unsigned long HAPPY_MIN_GAP_MS = 8000;    // 다음 웃음까지 최소 대기
+const unsigned long HAPPY_MAX_GAP_MS = 15000;   // 다음 웃음까지 최대 대기
+
 void setup() {
   Serial.begin(9600);
   pinMode(FLAME_IN_PIN, INPUT);
@@ -61,6 +69,25 @@ void setup() {
   eyes.setAutoblinker(ON, 3, 2);  // 자동 눈깜빡임: 3초 간격(±2초 변동)
   eyes.setIdleMode(ON, 2, 2);     // 가만히 있을 때 자동으로 이곳저곳 둘러봄
   eyes.setMood(DEFAULT);
+  nextHappyMs = millis() + random(HAPPY_MIN_GAP_MS, HAPPY_MAX_GAP_MS);
+}
+
+// 평소 상태일 때만, 일정 간격마다 잠깐 웃는 표정을 보여준다.
+void updateIdleHappy(Mood mood) {
+  if (mood != MOOD_NORMAL) return;  // 화재/큰소리 중엔 웃는 표정 끼어들지 않게
+  unsigned long now = millis();
+
+  if (isHappyNow) {
+    if (now - happyStartMs >= HAPPY_DURATION_MS) {
+      eyes.setMood(DEFAULT);
+      isHappyNow = false;
+      nextHappyMs = now + random(HAPPY_MIN_GAP_MS, HAPPY_MAX_GAP_MS);
+    }
+  } else if (now >= nextHappyMs) {
+    eyes.setMood(HAPPY);
+    isHappyNow = true;
+    happyStartMs = now;
+  }
 }
 
 void updateMood(Mood mood) {
@@ -78,6 +105,8 @@ void updateMood(Mood mood) {
     case MOOD_NORMAL:
     default:
       eyes.setMood(DEFAULT);
+      isHappyNow = false;
+      nextHappyMs = millis() + random(HAPPY_MIN_GAP_MS, HAPPY_MAX_GAP_MS);
       break;
   }
 }
@@ -97,4 +126,5 @@ void loop() {
     mood = MOOD_LOUD;
   }
   updateMood(mood);
+  updateIdleHappy(mood);
 }
