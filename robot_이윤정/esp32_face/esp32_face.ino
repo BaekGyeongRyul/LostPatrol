@@ -118,6 +118,15 @@ void loop() {
   int flame = digitalRead(FLAME_IN_PIN);
   int sound = digitalRead(SOUND_IN_PIN);
 
+  static unsigned long lastDebugMs = 0;  // 임시 디버그 — 원인 확인되면 지울 것
+  if (millis() - lastDebugMs >= 500) {
+    lastDebugMs = millis();
+    Serial.print("flame=");
+    Serial.print(flame);
+    Serial.print(" sound=");
+    Serial.println(sound);
+  }
+
   // 우선순위: 불꽃 > 큰 소리 > 평온
   Mood mood = MOOD_NORMAL;
   if (flame == HIGH) {
