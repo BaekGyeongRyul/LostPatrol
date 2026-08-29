@@ -75,6 +75,9 @@ const int SOUND_OUT_PIN = 9;
 // (사이에 220~330Ω 저항 있으면 같이 연결) — 2026.08.29 D2는 소음센서로 넘겨줌
 const int FIRE_LED_PIN = 7;
 
+// 큰 소리 감지 시 켜지는 LED. 긴다리(+)→D13, 짧은다리(-)→GND
+const int SOUND_LED_PIN = 13;
+
 // 실물 테스트로 확정(2026.08.26) — 라이터 반응 시 LED 켜지는 것까지 확인.
 const int FLAME_THRESHOLD = 5;
 
@@ -90,6 +93,7 @@ void setup() {
   pinMode(FLAME_OUT_PIN, OUTPUT);
   pinMode(SOUND_OUT_PIN, OUTPUT);
   pinMode(FIRE_LED_PIN, OUTPUT);
+  pinMode(SOUND_LED_PIN, OUTPUT);
   digitalWrite(FLAME_OUT_PIN, LOW);
   digitalWrite(SOUND_OUT_PIN, LOW);
 
@@ -158,8 +162,9 @@ void loop() {
   digitalWrite(FLAME_OUT_PIN, flame ? HIGH : LOW);
   digitalWrite(SOUND_OUT_PIN, sound ? HIGH : LOW);
 
-  // 화재 감지 시 빨간 LED 켜기
+  // 화재 감지 시 빨간 LED, 큰 소리 감지 시 소음 LED 켜기
   digitalWrite(FIRE_LED_PIN, flame ? HIGH : LOW);
+  digitalWrite(SOUND_LED_PIN, sound ? HIGH : LOW);
 
   // 우선순위: 불꽃 > 큰 소리 > 평온. (둘 다 감지되면 더 위험한 불꽃 표정 우선)
   Mood mood = MOOD_NORMAL;
