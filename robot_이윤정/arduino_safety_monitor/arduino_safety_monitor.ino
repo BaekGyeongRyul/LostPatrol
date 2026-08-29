@@ -67,6 +67,13 @@
        직접 임계값(SOUND_THRESHOLD) 비교하는 방식으로 변경. 초기값은
        미측정 상태라 임시로 넉넉하게 잡아둠 — 실측 후 FLAME_THRESHOLD처럼
        평소값/박수값 사이로 재조정 필요(SOUND_THRESHOLD 옆 주석 참고).
+  15차: A0로 바꾼 직후 soundRaw가 조용하든 박수를 치든 항상 490 근처로
+       고정되는 문제 발견(2026.08.29) — 소음센서 A0는 FLAME처럼 천천히
+       변하는 값이 아니라 빠르게 진동하는 오디오 파형 자체라서, 여러 번
+       읽어 평균내면(readAverage) 파형의 위아래가 서로 상쇄돼서 항상
+       바이어스 중간값(ADC 최댓값의 절반)으로만 나왔던 것. readAverage
+       대신 짧은 시간(50ms) 동안의 최댓값-최솟값(진폭)을 재는
+       readSoundAmplitude()로 바꿔서 해결.
 */
 
 #include <Wire.h>
@@ -105,10 +112,12 @@ const int SOUND_LED_PIN = 13;
 // 훨씬 낮아서 노이즈에 안정적임.
 const int FLAME_THRESHOLD = 100;
 
-// 미측정 상태의 임시값(2026.08.29) — 업로드 후 Serial Monitor에서
-// "DEBUG soundRaw=" 값을 평소(조용할 때)/박수 칠 때 각각 확인해서,
-// FLAME_THRESHOLD 했던 것처럼 그 사이 넉넉한 값으로 바꿔줄 것.
-const int SOUND_THRESHOLD = 500;
+// 평균값(readAverage) 대신 진폭(readSoundAmplitude, 최댓값-최솟값)을
+// 쓰는 걸로 바뀌면서 값 범위가 완전히 달라짐 — 미측정 상태의 임시값
+// (2026.08.29). 업로드 후 Serial Monitor에서 "DEBUG soundRaw=" 값을
+// 평소(조용할 때)/박수 칠 때 각각 확인해서, FLAME_THRESHOLD 했던 것처럼
+// 그 사이 넉넉한 값으로 바꿔줄 것.
+const int SOUND_THRESHOLD = 50;
 
 const int SAMPLE_COUNT = 10;   // 평균낼 샘플 개수
 const int SAMPLE_DELAY_MS = 5; // 샘플 사이 간격
@@ -145,6 +154,24 @@ int readAverage(int pin) {
   return sum / SAMPLE_COUNT;
 }
 
+// 소음센서(KY-038) A0는 FLAME처럼 천천히 변하는 값이 아니라 빠르게
+// 진동하는 오디오 파형 자체를 내보낸다. readAverage()로 여러 번 평균내면
+// 파형의 위아래가 서로 상쇄돼서 항상 중간값(바이어스 전압, ~490)으로만
+// 나오는 문제를 발견함(2026.08.29 — 박수를 쳐도 값이 그대로였음). 그래서
+// 평균 대신 짧은 시간 동안 최댓값-최솟값(진폭)을 재서, 조용하면 진폭이
+// 거의 0에 가깝고 큰 소리일수록 진폭이 커지도록 함.
+int readSoundAmplitude(int pin) {
+  int minVal = 1023;
+  int maxVal = 0;
+  unsigned long start = millis();
+  while (millis() - start < 50) {  // 50ms 동안 최대한 빠르게 샘플링
+    int v = analogRead(pin);
+    if (v < minVal) minVal = v;
+    if (v > maxVal) maxVal = v;
+  }
+  return maxVal - minVal;
+}
+
 void updateLcd(Mood mood) {
   if (mood == lastLcdMood) return;  // 상태 그대로면 다시 그리지 않음(깜빡임 방지)
   lastLcdMood = mood;
@@ -176,7 +203,7 @@ void updateLcd(Mood mood) {
 
 void loop() {
   int flameRaw = readAverage(FLAME_PIN);
-  int soundRaw = readAverage(SOUND_ANALOG_PIN);
+  int soundRaw = readSoundAmplitude(SOUND_ANALOG_PIN);
 
   int flame = (flameRaw > FLAME_THRESHOLD) ? 1 : 0;
   int sound = (soundRaw > SOUND_THRESHOLD) ? 1 : 0;
