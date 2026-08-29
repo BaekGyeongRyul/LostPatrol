@@ -10,15 +10,16 @@ detection`)가 쓰는 것과 같은 방식(OpenCV Haar cascade)을 그대로 활
 그대로 씀.
 
 controller.py(모터)나 safety_monitor.py(아두이노)와는 완전히 독립된
-프로세스라 라즈베리파이에서 이 스크립트만 따로 실행하면 된다. 카메라
-자체는 controller.py의 capture 명령과 별개로 이 스크립트가 직접 촬영한다
-(같은 카메라 장치를 물리적으로 동시에 두 프로세스가 열면 충돌할 수 있으니,
-capture 명령을 자주 쓰는 상황이라면 주의).
+프로세스라 라즈베리파이에서 이 스크립트만 따로 실행하면 된다. 카메라는
+stream_server.py가 떠있으면 거기서 찍고 있는 최신 프레임을 재사용하고
+(2026.08.29 추가 — 카메라 충돌 방지, controller.py와 동일한 패턴),
+stream_server.py가 없으면 이 스크립트가 직접 rpicam-still로 촬영한다.
 
 동작 방식:
-    1. MOTION_INTERVAL_SEC마다 실물 카메라(rpicam-still)로 한 장 촬영
-       (controller.py의 _grab_frame_rpicam()과 동일한 촬영 설정 — 실물
-       테스트로 확정된 rotation 180 / awb daylight 그대로 맞춤)
+    1. MOTION_INTERVAL_SEC마다 프레임 한 장 확보 — stream_server.py 재사용
+       우선, 없으면 실물 카메라(rpicam-still) 직접 촬영(controller.py의
+       _grab_frame_rpicam()과 동일한 촬영 설정 — 실물 테스트로 확정된
+       rotation 180 / awb daylight 그대로 맞춤)
     2. Haar cascade(정면 얼굴)로 얼굴 검출 → person_detected
     3. 이전 프레임과 흑백 픽셀 차이(absdiff)를 비교해서 변한 픽셀 비율로
        motion_severity(normal/warning/danger) 판단 — 임계값은 TBD,
@@ -47,6 +48,7 @@ except ImportError:
 
 RPICAM_STILL = shutil.which("rpicam-still")
 WEBCAM_INDEX = 0
+STREAM_SNAPSHOT_URL = f"http://localhost:{os.environ.get('STREAM_PORT', '8090')}/snapshot.jpg"
 
 MOTION_INTERVAL_SEC = 3  # 이 주기로 촬영/판단해서 Supabase에 반영
 
@@ -78,6 +80,28 @@ else:
 
 _prev_gray = None  # 직전 프레임(흑백) — 움직임 비교용
 _last_person_detected = False  # 상태가 "바뀐 순간"에만 patrol_events 기록하려고 기억
+
+
+def _grab_frame_from_stream_server():
+    """
+    controller.py의 _grab_frame_from_stream_server()와 동일한 목적.
+    stream_server.py(rpicam-vid)가 이미 카메라를 붙잡고 있는 상태에서
+    motion_monitor.py가 별도로 rpicam-still을 또 열면 카메라 충돌이 나서
+    촬영 실패(exit 255)하거나 스트리밍 화면 자체가 잠깐 깨지는(색/방향
+    이상해짐) 문제가 있었다(2026.08.29) — stream_server.py가 떠있으면
+    거기서 이미 찍고 있는 최신 프레임을 그대로 재사용해서 카메라를 다시
+    열지 않도록 함. stream_server.py가 안 떠있으면 조용히 실패하고
+    아래 _grab_frame_rpicam()으로 자연스럽게 넘어간다.
+    """
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(STREAM_SNAPSHOT_URL, timeout=2) as resp:
+            data = resp.read()
+        arr = np.frombuffer(data, dtype=np.uint8)
+        return cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    except Exception:
+        return None
 
 
 def _grab_frame_rpicam():
@@ -113,6 +137,9 @@ def _grab_frame_webcam():
 def _grab_frame():
     if cv2 is None:
         return None
+    frame = _grab_frame_from_stream_server()
+    if frame is not None:
+        return frame
     if RPICAM_STILL:
         return _grab_frame_rpicam()
     return _grab_frame_webcam()
