@@ -121,14 +121,21 @@ void updateLcd(Mood mood) {
   if (mood == lastLcdMood) return;  // 상태 그대로면 다시 그리지 않음(깜빡임 방지)
   lastLcdMood = mood;
 
+  // 화재 시에는 급박한 느낌을 위해 "LostPatrol" 대신 경고 문구로 화면 전체를 씀
+  // (LCD1602는 한글 표시가 안 돼서 영어로 작성)
+  if (mood == MOOD_FIRE) {
+    lcd.setCursor(0, 0);
+    lcd.print("!!!  FIRE!  !!! ");
+    lcd.setCursor(0, 1);
+    lcd.print("Send Help Now!  ");
+    return;
+  }
+
   lcd.setCursor(0, 0);
   lcd.print("LostPatrol      ");
 
   lcd.setCursor(0, 1);
   switch (mood) {
-    case MOOD_FIRE:
-      lcd.print("Status: FIRE!!  ");
-      break;
     case MOOD_LOUD:
       lcd.print("Status: LOUD    ");
       break;
