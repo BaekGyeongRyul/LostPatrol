@@ -57,7 +57,7 @@
 LiquidCrystal_I2C lcd(0x27, 16, 2);  // 주소, 컬럼 수, 행 수
 
 const int FLAME_PIN = A0;  // 아날로그로 읽음 (포토트랜지스터+저항 회로)
-const int SOUND_PIN = A2;  // 디지털로 읽음 (DO, 트리머로 감도 캘리브레이션 완료)
+const int SOUND_PIN = 2;   // 디지털로 읽음 (DO, 트리머로 감도 캘리브레이션 완료) — 2026.08.29 재배선으로 D2로 이동
 
 // LM35DZ 다리가 부러져서(2026.08.27) 실물 온도 측정을 일단 뺌 — 대신
 // 고정된 정상값을 보내서 fire 판정(flame or temp>=DANGER)이 온도쪽
@@ -71,9 +71,9 @@ const float FIXED_TEMP_C = 25.0;
 const int FLAME_OUT_PIN = 8;
 const int SOUND_OUT_PIN = 9;
 
-// 화재 감지 시 켜지는 빨간 LED. 긴다리(+)→D2, 짧은다리(-)→GND
-// (사이에 220~330Ω 저항 있으면 같이 연결)
-const int FIRE_LED_PIN = 2;
+// 화재 감지 시 켜지는 빨간 LED. 긴다리(+)→D7, 짧은다리(-)→GND
+// (사이에 220~330Ω 저항 있으면 같이 연결) — 2026.08.29 D2는 소음센서로 넘겨줌
+const int FIRE_LED_PIN = 7;
 
 // 실물 테스트로 확정(2026.08.26) — 라이터 반응 시 LED 켜지는 것까지 확인.
 const int FLAME_THRESHOLD = 5;
