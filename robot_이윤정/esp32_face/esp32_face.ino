@@ -69,12 +69,11 @@ void updateMood(Mood mood) {
 
   switch (mood) {
     case MOOD_FIRE:
-      eyes.setMood(ANGRY);
-      eyes.anim_confused();  // 위험 신호로 한 번 흔들리는 모션
-      break;
     case MOOD_LOUD:
-      eyes.setMood(HAPPY);   // 눈이 커지는 느낌으로 놀란 표정 대체 표현
-      eyes.anim_laugh();
+      // RoboEyes엔 "놀람" 표정이 따로 없어서, 화재/큰소리 둘 다 눈이
+      // 흔들리는 애니메이션(anim_confused)으로 통일해서 놀란 느낌을 냄.
+      eyes.setMood(DEFAULT);
+      eyes.anim_confused();
       break;
     case MOOD_NORMAL:
     default:
