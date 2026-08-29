@@ -153,6 +153,9 @@ void loop() {
   int flame = (flameRaw > FLAME_THRESHOLD) ? 1 : 0;
   int sound = (soundRaw == HIGH) ? 1 : 0;
 
+  Serial.print("DEBUG flameRaw=");  // 임시 디버그 — 임계값 재조정 끝나면 지울 것
+  Serial.println(flameRaw);
+
   Serial.print("{\"flame\": ");
   Serial.print(flame);
   Serial.print(", \"temp_c\": 0.0");  // 온도 기능 뺌(LM35DZ 다리 파손) — 프로토콜 호환용 자리값
