@@ -48,7 +48,9 @@
   12차: temp_c가 계속 널뛰다가(9도~134도 등) 원인을 찾아보니 LM35DZ
        다리가 물리적으로 부러져 있었음(2026.08.27) — 그래서 접촉이
        불안정해서 뜬 값이 랜덤하게 잡혔던 것. 센서 교체 전까지는 TEMP_PIN
-       읽기를 빼고 고정값(FIXED_TEMP_C)을 보내도록 임시 조치.
+       읽기를 빼고 고정값을 보내도록 임시 조치했다가, 2026.08.29 아예
+       온도 기능 자체를 뺌(LCD 표시도 제거) — 센서 수리/교체 후 다시 넣을 것.
+       JSON에는 프로토콜 호환을 위해 temp_c:0.0으로 계속 보냄(안 쓰는 값).
 */
 
 #include <Wire.h>
@@ -59,11 +61,10 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);  // 주소, 컬럼 수, 행 수
 const int FLAME_PIN = A0;  // 아날로그로 읽음 (포토트랜지스터+저항 회로)
 const int SOUND_PIN = 2;   // 디지털로 읽음 (DO, 트리머로 감도 캘리브레이션 완료) — 2026.08.29 재배선으로 D2로 이동
 
-// LM35DZ 다리가 부러져서(2026.08.27) 실물 온도 측정을 일단 뺌 — 대신
-// 고정된 정상값을 보내서 fire 판정(flame or temp>=DANGER)이 온도쪽
-// 이상값 때문에 오작동하지 않게 함. 센서 교체/수리되면 TEMP_PIN 살리고
+// LM35DZ 다리가 부러져서(2026.08.27) 온도 기능 자체를 뺌(2026.08.29).
+// JSON 프로토콜 호환을 위해 temp_c는 계속 0.0으로 보내되, fire 판정은
+// flame 센서만으로 함. 센서 교체/수리되면 TEMP_PIN 살리고
 // readAverage(TEMP_PIN) 다시 쓰면 됨.
-const float FIXED_TEMP_C = 25.0;
 
 // ESP32로 flame/sound 판정 결과를 그대로 내보내는 디지털 출력 핀.
 // ESP32는 이 두 핀만 읽어서 얼굴 표정을 결정한다 — 별도 프로토콜 없이
@@ -116,14 +117,12 @@ int readAverage(int pin) {
   return sum / SAMPLE_COUNT;
 }
 
-void updateLcd(Mood mood, float tempC) {
+void updateLcd(Mood mood) {
   if (mood == lastLcdMood) return;  // 상태 그대로면 다시 그리지 않음(깜빡임 방지)
   lastLcdMood = mood;
 
   lcd.setCursor(0, 0);
-  lcd.print("T:");
-  lcd.print(tempC, 1);
-  lcd.print("C          ");  // 뒤에 남는 이전 글자 지우기용 공백
+  lcd.print("LostPatrol      ");
 
   lcd.setCursor(0, 1);
   switch (mood) {
@@ -147,13 +146,9 @@ void loop() {
   int flame = (flameRaw > FLAME_THRESHOLD) ? 1 : 0;
   int sound = (soundRaw == HIGH) ? 1 : 0;
 
-  // LM35DZ 다리 파손으로 실물 측정 대신 고정값 사용 (위 FIXED_TEMP_C 참고)
-  float tempC = FIXED_TEMP_C;
-
   Serial.print("{\"flame\": ");
   Serial.print(flame);
-  Serial.print(", \"temp_c\": ");
-  Serial.print(tempC, 1);
+  Serial.print(", \"temp_c\": 0.0");  // 온도 기능 뺌(LM35DZ 다리 파손) — 프로토콜 호환용 자리값
   Serial.print(", \"sound\": ");
   Serial.print(sound);
   Serial.println("}");
@@ -174,7 +169,7 @@ void loop() {
     mood = MOOD_LOUD;
   }
 
-  updateLcd(mood, tempC);
+  updateLcd(mood);
 
   delay(900);  // readAverage()가 이미 (10*5=50ms)*2 정도 쓰니 대략 1초 주기 맞춤
 }
