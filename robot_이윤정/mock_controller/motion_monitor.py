@@ -21,9 +21,12 @@ stream_server.py가 없으면 이 스크립트가 직접 rpicam-still로 촬영�
        _grab_frame_rpicam()과 동일한 촬영 설정 — 실물 테스트로 확정된
        rotation 180 / awb daylight 그대로 맞춤)
     2. Haar cascade(정면 얼굴)로 얼굴 검출 → person_detected
-    3. 이전 프레임과 흑백 픽셀 차이(absdiff)를 비교해서 변한 픽셀 비율로
-       motion_severity(normal/warning/danger) 판단 — 임계값은 TBD,
-       실물로 몇 번 테스트해보면서 조정 필요
+    3. motion_severity는 person_detected를 그대로 반영(감지되면 danger,
+       아니면 normal) — 원래는 픽셀 diff 기반으로 따로 판단했는데, 웹에서
+       "PERSON DETECTED/NO MOTION" 문구(person_detected 기준)와 빨간/초록
+       색상(motion_severity 기준)이 서로 안 맞게 보이는 문제가 있었고,
+       stream_server 프레임 재사용으로 바꾸면서 영상 압축 노이즈 때문에
+       diff 기반 판단이 더 불안정해져서 2026.08.29에 단순화함.
     4. store.update_safety_status(motion_severity=..., person_detected=...)
        — 이 함수는 넘긴 필드만 갱신하고 나머지(화재/소음 등)는 안 건드림
        (store.py 참고)
@@ -61,16 +64,6 @@ FACE_CASCADE_PATH = os.environ.get(
 
 DEFAULT_LOCATION = os.environ.get("DEFAULT_LOCATION", "A구역")
 
-# TBD - 팀 협의 후 확정. 실물 테스트로 몇 번 돌려보면서 맞는 값 찾아야 함.
-# 변한 픽셀 비율(%) 기준. 처음엔 1.0/5.0으로 뒀다가 실물 테스트에서 아무도
-# 없어도 계속 danger로 뜨는 문제 발견(2026.08.27) — rpicam-still을 매번
-# 새 프로세스로 찍다 보니 사진마다 자동노출/화이트밸런스가 미묘하게 달라져서
-# 실제 움직임 없이도 픽셀 차이가 크게 잡히는 게 원인으로 추정. 임계값을
-# 훨씬 높이고, 비교 전에 블러 처리를 추가해서 이런 미세한 노이즈에 덜
-# 민감하게 만듦.
-MOTION_WARNING_PCT = 10.0
-MOTION_DANGER_PCT = 25.0
-
 _face_cascade = None
 if cv2 is not None and os.path.exists(FACE_CASCADE_PATH):
     _face_cascade = cv2.CascadeClassifier(FACE_CASCADE_PATH)
@@ -78,7 +71,6 @@ if cv2 is not None and os.path.exists(FACE_CASCADE_PATH):
 else:
     print(f"[MOTION] 얼굴 검출 모델 없음({FACE_CASCADE_PATH}) — person_detected는 항상 False로 동작")
 
-_prev_gray = None  # 직전 프레임(흑백) — 움직임 비교용
 _last_person_detected = False  # 상태가 "바뀐 순간"에만 patrol_events 기록하려고 기억
 
 
@@ -152,34 +144,21 @@ def _detect_person(gray) -> bool:
     return len(faces) > 0
 
 
-def _motion_severity(prev_gray, gray) -> str:
-    """이전 프레임과 비교해서 변한 픽셀 비율(%)로 움직임 정도를 판단한다."""
-    if prev_gray is None:
-        return "normal"  # 첫 프레임은 비교 대상이 없음
-
-    # 매번 rpicam-still을 새 프로세스로 찍다 보니 자동노출/화이트밸런스가
-    # 사진마다 미세하게 달라져서 생기는 노이즈를 줄이려고 블러 처리 후 비교.
-    prev_blur = cv2.GaussianBlur(prev_gray, (21, 21), 0)
-    cur_blur = cv2.GaussianBlur(gray, (21, 21), 0)
-
-    diff = cv2.absdiff(prev_blur, cur_blur)
-    _, thresh = cv2.threshold(diff, 25, 255, cv2.THRESH_BINARY)
-    changed_pct = (cv2.countNonZero(thresh) / thresh.size) * 100
-
-    if changed_pct >= MOTION_DANGER_PCT:
-        return "danger"
-    if changed_pct >= MOTION_WARNING_PCT:
-        return "warning"
-    return "normal"
-
-
 def _handle_frame(frame) -> None:
-    global _prev_gray, _last_person_detected
+    global _last_person_detected
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     person_detected = _detect_person(gray)
-    motion_severity = _motion_severity(_prev_gray, gray)
-    _prev_gray = gray
+
+    # 원래는 픽셀 변화율(_motion_severity)로 danger/warning/normal을 따로
+    # 판단했는데, 웹(LivePatrol.jsx)에서 "PERSON DETECTED/NO MOTION" 문구는
+    # person_detected 기준, 빨간색/초록색 표시는 motion_severity 기준으로
+    # 서로 다른 값을 봐서 둘이 안 맞게(글자랑 색이 따로 노는) 보이는 문제가
+    # 있었다(2026.08.29). 게다가 stream_server 프레임 재사용으로 바꾸면서
+    # (영상 압축 노이즈 때문에) 픽셀 변화율 판단이 더 불안정해짐. "사람
+    # 감지되면 빨강, 아니면 초록"이 실제 요구사항이라 motion_severity를
+    # person_detected 기준으로 단순화함.
+    motion_severity = "danger" if person_detected else "normal"
 
     store.update_safety_status(
         motion_severity=motion_severity,
