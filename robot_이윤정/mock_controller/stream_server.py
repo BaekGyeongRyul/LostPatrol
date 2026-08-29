@@ -66,7 +66,12 @@ def _capture_loop() -> None:
     (0xFFD8 시작, 0xFFD9 끝)를 직접 찾아서 한 장씩 잘라 broadcaster에 넣는다."""
     cmd = [
         RPICAM_VID, "--codec", "mjpeg", "-o", "-", "-t", "0", "-n",
-        "--rotation", "180", "--awb", "daylight",
+        # rpicam-still은 --rotation 180으로 잘 뒤집히는데, rpicam-vid는
+        # 이 카메라(ov5647)의 저해상도 비디오 모드에서 --rotation이
+        # 제대로 안 먹어서 화면이 위아래 반전된 채로 나오는 문제가 있었음
+        # (2026.08.29). --hflip/--vflip을 대신 쓰면(180도 회전과 결과는
+        # 같음) 이 비디오 모드에서도 정상 동작해서 이걸로 바꿈.
+        "--hflip", "1", "--vflip", "1", "--awb", "daylight",
         "--width", str(STREAM_WIDTH), "--height", str(STREAM_HEIGHT),
         "--framerate", str(STREAM_FRAMERATE),
     ]
