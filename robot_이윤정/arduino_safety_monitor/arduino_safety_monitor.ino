@@ -9,7 +9,10 @@
 
   배선 (실제 연결 기준, 2026.08.26~27):
     FLAME 센서(2다리 포토트랜지스터형) 짧은다리→5V, 긴다리→A0 + 10kΩ 저항 거쳐 GND
-    소음센서 모듈(비교기 내장, DO 있음)  +→5V, G→GND, DO→A2
+    소음센서 모듈(KY-038, 비교기+마이크) +→5V, G→GND, A0→우노 A2
+      (D0/트리머 기반 판정은 감도 구간이 너무 좁아서(항상 꺼짐 ↔ 항상 켜짐
+      둘 중 하나로만 튐) 2026.08.29에 포기하고, FLAME과 같은 방식으로
+      아날로그 원본(A0)을 코드에서 임계값 비교하는 걸로 바꿈 — 아래 14차 참고)
     LM35DZ (평평한 면 기준 왼쪽부터)     왼쪽(VCC)→5V, 가운데(OUT)→A1, 오른쪽(GND)→GND
     LCD1602 I2C 모듈                    VCC→5V, GND→GND, SDA→A4, SCL→A5 (주소 0x27)
     ESP32(별도 보드, 얼굴용 OLED 담당)  D8→ESP32 GPIO(flame신호), D9→ESP32 GPIO(sound신호),
@@ -57,6 +60,13 @@
        빠져있었음. USB 재연결로 포트가 ttyACM1로 바뀐 게 원인 — .env의
        SERIAL_PORT를 갱신하고 safety_monitor.py 재시작해서 해결. (USB
        재연결/재부팅마다 ttyACM 번호가 바뀔 수 있다는 점 기억할 것.)
+  14차: 소음센서(KY-038) D0+트리머 방식이 "박수 쳐도 전혀 반응 없음"과
+       "평소에도 계속 반응"사이의 중간 지점을 트리머로 못 찾음(2026.08.29)
+       — 트리머 감도 구간이 너무 좁은 걸로 추정. FLAME과 동일하게
+       아날로그 원본(A0)을 우노 SOUND_ANALOG_PIN(A2)으로 읽어서 코드에서
+       직접 임계값(SOUND_THRESHOLD) 비교하는 방식으로 변경. 초기값은
+       미측정 상태라 임시로 넉넉하게 잡아둠 — 실측 후 FLAME_THRESHOLD처럼
+       평소값/박수값 사이로 재조정 필요(SOUND_THRESHOLD 옆 주석 참고).
 */
 
 #include <Wire.h>
@@ -65,7 +75,10 @@
 LiquidCrystal_I2C lcd(0x27, 16, 2);  // 주소, 컬럼 수, 행 수
 
 const int FLAME_PIN = A0;  // 아날로그로 읽음 (포토트랜지스터+저항 회로)
-const int SOUND_PIN = 2;   // 디지털로 읽음 (DO, 트리머로 감도 캘리브레이션 완료) — 2026.08.29 재배선으로 D2로 이동
+
+// 소음센서(KY-038)의 A0(아날로그 원본)를 읽음 — 2026.08.29, D0+트리머 방식
+// 대신 FLAME과 같은 "아날로그 읽고 코드에서 임계값 비교" 방식으로 변경.
+const int SOUND_ANALOG_PIN = A2;
 
 // LM35DZ 다리가 부러져서(2026.08.27) 온도 기능 자체를 뺌(2026.08.29).
 // JSON 프로토콜 호환을 위해 temp_c는 계속 0.0으로 보내되, fire 판정은
@@ -92,6 +105,11 @@ const int SOUND_LED_PIN = 13;
 // 훨씬 낮아서 노이즈에 안정적임.
 const int FLAME_THRESHOLD = 100;
 
+// 미측정 상태의 임시값(2026.08.29) — 업로드 후 Serial Monitor에서
+// "DEBUG soundRaw=" 값을 평소(조용할 때)/박수 칠 때 각각 확인해서,
+// FLAME_THRESHOLD 했던 것처럼 그 사이 넉넉한 값으로 바꿔줄 것.
+const int SOUND_THRESHOLD = 500;
+
 const int SAMPLE_COUNT = 10;   // 평균낼 샘플 개수
 const int SAMPLE_DELAY_MS = 5; // 샘플 사이 간격
 
@@ -100,7 +118,7 @@ Mood lastLcdMood = MOOD_NORMAL;  // LCD는 값이 바뀔 때만 다시 그려서
 
 void setup() {
   Serial.begin(9600);
-  pinMode(SOUND_PIN, INPUT);
+  // SOUND_ANALOG_PIN(A2)은 analogRead()로만 쓰므로 pinMode 설정 불필요.
   pinMode(FLAME_OUT_PIN, OUTPUT);
   pinMode(SOUND_OUT_PIN, OUTPUT);
   pinMode(FIRE_LED_PIN, OUTPUT);
@@ -158,10 +176,13 @@ void updateLcd(Mood mood) {
 
 void loop() {
   int flameRaw = readAverage(FLAME_PIN);
-  int soundRaw = digitalRead(SOUND_PIN);
+  int soundRaw = readAverage(SOUND_ANALOG_PIN);
 
   int flame = (flameRaw > FLAME_THRESHOLD) ? 1 : 0;
-  int sound = (soundRaw == HIGH) ? 1 : 0;
+  int sound = (soundRaw > SOUND_THRESHOLD) ? 1 : 0;
+
+  Serial.print("DEBUG soundRaw=");  // 임시 디버그 — SOUND_THRESHOLD 재조정 끝나면 지울 것
+  Serial.println(soundRaw);
 
   Serial.print("{\"flame\": ");
   Serial.print(flame);
