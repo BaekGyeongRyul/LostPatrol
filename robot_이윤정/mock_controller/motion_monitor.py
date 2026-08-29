@@ -72,6 +72,7 @@ else:
     print(f"[MOTION] 얼굴 검출 모델 없음({FACE_CASCADE_PATH}) — person_detected는 항상 False로 동작")
 
 _last_person_detected = False  # 상태가 "바뀐 순간"에만 patrol_events 기록하려고 기억
+_ever_detected = False  # 한 번 감지되면 계속 True로 유지(래치) — 재시작해야 초기화됨
 
 
 def _grab_frame_from_stream_server():
@@ -145,10 +146,17 @@ def _detect_person(gray) -> bool:
 
 
 def _handle_frame(frame) -> None:
-    global _last_person_detected
+    global _last_person_detected, _ever_detected
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     person_detected = _detect_person(gray)
+
+    # 한 번이라도 감지되면 이후 프레임에서 얼굴이 안 잡혀도(각도/거리 때문에
+    # 놓치는 경우가 잦음) 계속 감지된 상태로 유지해달라는 요청(2026.08.29).
+    # 다시 False로 돌아가게 하려면 motion_monitor.py를 재시작하면 된다.
+    if person_detected:
+        _ever_detected = True
+    person_detected = _ever_detected
 
     # 원래는 픽셀 변화율(_motion_severity)로 danger/warning/normal을 따로
     # 판단했는데, 웹(LivePatrol.jsx)에서 "PERSON DETECTED/NO MOTION" 문구는
