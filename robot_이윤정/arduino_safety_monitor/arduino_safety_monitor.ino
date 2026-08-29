@@ -51,6 +51,12 @@
        읽기를 빼고 고정값을 보내도록 임시 조치했다가, 2026.08.29 아예
        온도 기능 자체를 뺌(LCD 표시도 제거) — 센서 수리/교체 후 다시 넣을 것.
        JSON에는 프로토콜 호환을 위해 temp_c:0.0으로 계속 보냄(안 쓰는 값).
+  13차: 웹사이트가 화재 감지 후에도 계속 normal로 뜨는 문제 발생(2026.08.29)
+       → 우노/LCD는 정상(FIRE로 잘 바뀜)인데 safety_monitor.py가
+       "/dev/ttyACM0: No such file or directory" 에러로 mock 모드로
+       빠져있었음. USB 재연결로 포트가 ttyACM1로 바뀐 게 원인 — .env의
+       SERIAL_PORT를 갱신하고 safety_monitor.py 재시작해서 해결. (USB
+       재연결/재부팅마다 ttyACM 번호가 바뀔 수 있다는 점 기억할 것.)
 */
 
 #include <Wire.h>
@@ -152,9 +158,6 @@ void loop() {
 
   int flame = (flameRaw > FLAME_THRESHOLD) ? 1 : 0;
   int sound = (soundRaw == HIGH) ? 1 : 0;
-
-  Serial.print("DEBUG flameRaw=");  // 임시 디버그 — 임계값 재조정 끝나면 지울 것
-  Serial.println(flameRaw);
 
   Serial.print("{\"flame\": ");
   Serial.print(flame);
