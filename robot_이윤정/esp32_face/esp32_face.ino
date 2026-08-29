@@ -97,9 +97,10 @@ void updateMood(Mood mood) {
   switch (mood) {
     case MOOD_FIRE:
     case MOOD_LOUD:
-      // RoboEyes엔 "놀람" 표정이 따로 없어서, 화재/큰소리 둘 다 눈이
-      // 흔들리는 애니메이션(anim_confused)으로 통일해서 놀란 느낌을 냄.
-      eyes.setMood(DEFAULT);
+      // RoboEyes엔 "놀람" 표정이 따로 없어서, ANGRY(눈매 뾰족해짐)로
+      // 시각적으로 확실히 다르게 보이게 하고, 거기에 흔들리는 애니메이션
+      // (anim_confused)을 더해서 놀람/경계 느낌을 강조함.
+      eyes.setMood(ANGRY);
       eyes.anim_confused();
       break;
     case MOOD_NORMAL:
