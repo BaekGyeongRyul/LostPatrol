@@ -21,6 +21,7 @@ Arduino 쪽에서 보내야 하는 시리얼 프로토콜 (9600 baud, 1초에 �
       raw 값을 보내면 여기서 판단해도 됨 — 지금은 0/1로 가정)
 """
 
+import glob
 import json
 import os
 import random
@@ -50,11 +51,30 @@ _last_flame = False
 _last_sound = False
 
 
+def _resolve_serial_port():
+    """.env의 SERIAL_PORT가 실제로 존재하면 그대로 쓰고, 없으면(USB
+    재연결로 ttyACM0<->ttyACM1처럼 번호가 바뀌었을 때) /dev/ttyACM*,
+    /dev/ttyUSB*를 뒤져서 실제로 꽂혀있는 포트를 대신 찾아 쓴다.
+    (2026.08.29 — 하루에 여러 번 번호가 바뀌어서 그때마다 .env를 수동으로
+    고쳐야 했던 문제를 없애기 위해 추가.)
+    """
+    if SERIAL_PORT and os.path.exists(SERIAL_PORT):
+        return SERIAL_PORT
+    candidates = sorted(glob.glob("/dev/ttyACM*") + glob.glob("/dev/ttyUSB*"))
+    if candidates:
+        found = candidates[0]
+        if SERIAL_PORT and SERIAL_PORT != found:
+            print(f"[SAFETY] .env의 SERIAL_PORT({SERIAL_PORT})가 없어서 {found}를 대신 사용합니다.")
+        return found
+    return SERIAL_PORT  # 아무것도 못 찾으면 원래 값 그대로 반환(에러 메시지에 나오게)
+
+
 def _open_serial():
-    if serial is None or not SERIAL_PORT:
+    port = _resolve_serial_port()
+    if serial is None or not port:
         return None
     try:
-        ser = serial.Serial(SERIAL_PORT, SERIAL_BAUD, timeout=1)
+        ser = serial.Serial(port, SERIAL_BAUD, timeout=1)
         # 포트를 열면 대부분의 아두이노 보드는 DTR 신호 때문에 자동으로
         # 리셋된다(재부팅). 리셋 직후 부트로더가 안정화되기 전까지 들어오는
         # 바이트는 쓰레기 값(널 바이트 등)일 수 있어서, 잠깐 기다렸다가
@@ -64,7 +84,7 @@ def _open_serial():
         ser.reset_input_buffer()
         return ser
     except Exception as exc:
-        print(f"[SAFETY] 시리얼 포트({SERIAL_PORT}) 열기 실패, mock으로 전환: {exc}")
+        print(f"[SAFETY] 시리얼 포트({port}) 열기 실패, mock으로 전환: {exc}")
         return None
 
 
