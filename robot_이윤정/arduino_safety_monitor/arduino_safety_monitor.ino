@@ -9,7 +9,7 @@
 
   배선 (실제 연결 기준, 2026.08.26~27):
     FLAME 센서(2다리 포토트랜지스터형) 짧은다리→5V, 긴다리→A0 + 10kΩ 저항 거쳐 GND
-    소음센서 모듈(KY-038, 비교기+마이크) +→5V, G→GND, A0→우노 A2
+    소음센서 모듈(KY-038, 비교기+마이크) +→5V, G→GND, A0→우노 A3
       (D0/트리머 기반 판정은 감도 구간이 너무 좁아서(항상 꺼짐 ↔ 항상 켜짐
       둘 중 하나로만 튐) 2026.08.29에 포기하고, FLAME과 같은 방식으로
       아날로그 원본(A0)을 코드에서 임계값 비교하는 걸로 바꿈 — 아래 14차 참고)
@@ -63,7 +63,7 @@
   14차: 소음센서(KY-038) D0+트리머 방식이 "박수 쳐도 전혀 반응 없음"과
        "평소에도 계속 반응"사이의 중간 지점을 트리머로 못 찾음(2026.08.29)
        — 트리머 감도 구간이 너무 좁은 걸로 추정. FLAME과 동일하게
-       아날로그 원본(A0)을 우노 SOUND_ANALOG_PIN(A2)으로 읽어서 코드에서
+       아날로그 원본(A0)을 우노 SOUND_ANALOG_PIN(A3)으로 읽어서 코드에서
        직접 임계값(SOUND_THRESHOLD) 비교하는 방식으로 변경. 초기값은
        미측정 상태라 임시로 넉넉하게 잡아둠 — 실측 후 FLAME_THRESHOLD처럼
        평소값/박수값 사이로 재조정 필요(SOUND_THRESHOLD 옆 주석 참고).
@@ -85,7 +85,7 @@ const int FLAME_PIN = A0;  // 아날로그로 읽음 (포토트랜지스터+저�
 
 // 소음센서(KY-038)의 A0(아날로그 원본)를 읽음 — 2026.08.29, D0+트리머 방식
 // 대신 FLAME과 같은 "아날로그 읽고 코드에서 임계값 비교" 방식으로 변경.
-const int SOUND_ANALOG_PIN = A2;
+const int SOUND_ANALOG_PIN = A3;
 
 // LM35DZ 다리가 부러져서(2026.08.27) 온도 기능 자체를 뺌(2026.08.29).
 // JSON 프로토콜 호환을 위해 temp_c는 계속 0.0으로 보내되, fire 판정은
@@ -127,7 +127,7 @@ Mood lastLcdMood = MOOD_NORMAL;  // LCD는 값이 바뀔 때만 다시 그려서
 
 void setup() {
   Serial.begin(9600);
-  // SOUND_ANALOG_PIN(A2)은 analogRead()로만 쓰므로 pinMode 설정 불필요.
+  // SOUND_ANALOG_PIN(A3)은 analogRead()로만 쓰므로 pinMode 설정 불필요.
   pinMode(FLAME_OUT_PIN, OUTPUT);
   pinMode(SOUND_OUT_PIN, OUTPUT);
   pinMode(FIRE_LED_PIN, OUTPUT);
