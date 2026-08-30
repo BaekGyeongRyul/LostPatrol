@@ -498,6 +498,7 @@ def _patrol_loop() -> None:
                 return
 
             tracking = _read_tracking()
+            print(f"[MOCK ROBOT] (debug) tracking={tracking}")  # 임시 디버그 — 원인 확인되면 지울 것
             if tracking is not None:
                 _patrol_steer(*tracking)
                 time.sleep(0.1)  # 라인 이탈에 빠르게 반응하려고 짧게
