@@ -130,10 +130,9 @@ HEARTBEAT_INTERVAL_SEC = 5
 # TBD - 팀 협의 후 확정. 초음파 센서 실물이 없어서 지금은 안 쓰이는 자리표시자 값.
 OBSTACLE_STOP_DISTANCE_CM = 20
 
-# 초음파 센서 배선/신호가 아직 안 맞아서 거리값이 오작동(순찰이 계속
-# 장애물로 오인해 멈춤)하는 문제가 있어 임시로 꺼둠(2026.08.30) — 순찰
-# 시연 촬영 방해되지 않게. ③ 장애물 감지 시연 찍을 때 True로 되돌릴 것.
-OBSTACLE_DETECTION_ENABLED = False
+# 초음파 센서 배선/신호 문제로 순찰 시연(②) 촬영 방해될 때 잠깐 꺼뒀던
+# 스위치 — ③④(장애물 감지→촬영→분실물 등록) 시연 위해 다시 켬(2026.08.30).
+OBSTACLE_DETECTION_ENABLED = True
 
 # 장애물 감지 시 사진을 찍기 전에 잠깐 후진하는 속도/시간(2026.08.30
 # 추가) — 정지 거리(OBSTACLE_STOP_DISTANCE_CM=20cm)가 너무 가까워서
@@ -218,6 +217,7 @@ def _check_obstacle() -> bool:
     if not OBSTACLE_DETECTION_ENABLED:
         return False
     distance = _measure_distance_cm()
+    print(f"[MOCK ROBOT] (debug) 초음파 거리={distance}")  # 임시 디버그 — 원인 확인되면 지울 것
     if distance is None:
         return False
     return distance <= OBSTACLE_STOP_DISTANCE_CM
