@@ -18,24 +18,40 @@ multipart/x-mixed-replace를 기본으로 지원함).
     python3 stream_server.py
     → http://<Pi IP>:8090/stream.mjpg 로 접속해서 확인
 
-주의: controller.py가 "capture" 명령 처리 중에도 카메라를 쓰는데, CSI
-카메라는 한 번에 한 프로세스만 열 수 있는 경우가 많다. 이 스트리밍
-서버를 계속 켜두면 controller.py의 capture 명령이 실패할 수 있으니,
-사진 촬영이 필요한 테스트 중에는 스트리밍 서버를 잠깐 꺼두는 게 안전하다.
+엔드포인트 3개:
+    /stream.mjpg     — 실시간 MJPEG 스트림 (브라우저용)
+    /snapshot.jpg    — 지금 스트리밍 중인 프레임 한 장 재사용(저해상도,
+                       카메라 재오픈 없이 빠름 — controller.py의 일반 촬영용)
+    /hq_snapshot.jpg — 스트리밍을 잠깐 멈추고 고해상도(1296x972)로 한 장
+                       직접 촬영 후 재개 (controller.py의 분실물 등록용
+                       촬영처럼 화질이 중요할 때 씀, request_hq_capture() 참고)
+
+CSI 카메라는 한 번에 한 프로세스만 열 수 있어서, rpicam-vid(이 서버)가
+떠있는 채로 별도 rpicam-still을 그냥 열면 화면이 순간적으로 깨진다
+(2026.08.30 확인) — 그래서 고해상도가 필요하면 /snapshot.jpg가 아니라
+반드시 /hq_snapshot.jpg를 통해 이 서버 안에서 조율해서 찍어야 한다.
 """
 
 import os
 import shutil
 import subprocess
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 RPICAM_VID = shutil.which("rpicam-vid")
+RPICAM_STILL = shutil.which("rpicam-still")
 
 STREAM_PORT = int(os.environ.get("STREAM_PORT", "8090"))
 STREAM_WIDTH = int(os.environ.get("STREAM_WIDTH", "640"))
 STREAM_HEIGHT = int(os.environ.get("STREAM_HEIGHT", "480"))
 STREAM_FRAMERATE = int(os.environ.get("STREAM_FRAMERATE", "15"))
+
+# 분실물 등록용 고해상도 촬영(/hq_snapshot.jpg) 중에는 스트리밍용
+# rpicam-vid를 잠깐 내려야 한다(카메라는 한 번에 한 프로세스만 열 수
+# 있음) — 이 두 이벤트로 캡처 루프 스레드와 신호를 주고받는다.
+_pause_event = threading.Event()   # set: 캡처 루프가 rpicam-vid를 내려야 함
+_paused_ack = threading.Event()    # set: 캡처 루프가 실제로 rpicam-vid를 내림
 
 
 class FrameBroadcaster:
@@ -61,9 +77,9 @@ class FrameBroadcaster:
 broadcaster = FrameBroadcaster()
 
 
-def _capture_loop() -> None:
-    """rpicam-vid의 MJPEG 출력(raw byte stream)에서 JPEG 프레임 경계
-    (0xFFD8 시작, 0xFFD9 끝)를 직접 찾아서 한 장씩 잘라 broadcaster에 넣는다."""
+def _run_vid_once() -> None:
+    """rpicam-vid를 한 번 띄워서, 멈춤 요청(_pause_event)이 오거나
+    프로세스가 죽을 때까지 프레임을 broadcaster에 계속 채워 넣는다."""
     cmd = [
         RPICAM_VID, "--codec", "mjpeg", "-o", "-", "-t", "0", "-n",
         # rpicam-still은 --rotation 180으로 잘 뒤집히는데, rpicam-vid는
@@ -80,7 +96,7 @@ def _capture_loop() -> None:
 
     buf = b""
     try:
-        while True:
+        while not _pause_event.is_set():
             chunk = proc.stdout.read(4096)
             if not chunk:
                 print("[STREAM] rpicam-vid 출력 종료됨")
@@ -95,12 +111,59 @@ def _capture_loop() -> None:
                 broadcaster.set_frame(jpg)
     finally:
         proc.terminate()
+        proc.wait()
+
+
+def _capture_loop() -> None:
+    """_run_vid_once()를 계속 반복 — 고해상도 촬영 요청(_pause_event)이
+    오면 rpicam-vid를 내리고 대기했다가, 요청이 끝나면(_pause_event
+    clear) 다시 새로 띄워서 스트리밍을 재개한다."""
+    while True:
+        if _pause_event.is_set():
+            _paused_ack.set()  # "지금 rpicam-vid 꺼져있음" 확인 신호
+            time.sleep(0.05)
+            continue
+        _paused_ack.clear()
+        _run_vid_once()
+
+
+def request_hq_capture(timeout: float = 15):
+    """스트리밍(rpicam-vid)을 잠깐 멈추고 고해상도 사진 한 장을 rpicam-still로
+    직접 찍은 뒤, 스트리밍을 다시 재개한다. 실패하면 None.
+
+    카메라는 한 번에 한 프로세스만 열 수 있어서, rpicam-vid가 떠있는 채로
+    rpicam-still을 또 열면 화면이 순간적으로 깨지는 문제가 있었다
+    (2026.08.30) — 분실물 등록용 사진은 화질이 중요한데 스트리밍용
+    저해상도(640x480) 프레임 재사용은 YOLO 인식률이 떨어져서, 이렇게
+    "잠깐 스트리밍 끄고 고해상도로 찍고 다시 켜기" 방식으로 바꿈.
+    """
+    if RPICAM_STILL is None:
+        return None
+    _pause_event.set()
+    if not _paused_ack.wait(timeout=2):
+        print("[STREAM] rpicam-vid 정지 확인 타임아웃 — 그래도 촬영 시도")
+    try:
+        result = subprocess.run(
+            [RPICAM_STILL, "-o", "-", "-t", "1000", "-n",
+             "--rotation", "180", "--awb", "daylight",
+             "--width", "1296", "--height", "972"],
+            capture_output=True, timeout=timeout, check=True,
+        )
+        return result.stdout
+    except Exception as exc:
+        print(f"[STREAM] 고해상도 촬영 실패: {exc}")
+        return None
+    finally:
+        _pause_event.clear()  # 캡처 루프가 rpicam-vid를 다시 띄우게 함
 
 
 class StreamHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/snapshot.jpg":
             self._serve_snapshot()
+            return
+        if self.path == "/hq_snapshot.jpg":
+            self._serve_hq_snapshot()
             return
         if self.path != "/stream.mjpg":
             self.send_response(404)
@@ -141,6 +204,25 @@ class StreamHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(frame)))
         self.end_headers()
         self.wfile.write(frame)
+
+    def _serve_hq_snapshot(self) -> None:
+        """스트리밍을 잠깐 멈추고 고해상도 사진 한 장을 찍어서 돌려준다.
+
+        controller.py가 분실물 등록용 사진을 찍을 때 이 주소를 쓴다
+        (2026.08.30) — /snapshot.jpg(스트리밍 프레임 재사용)는 화질이
+        낮아서 YOLO 인식률이 떨어지는 문제가 있었음. request_hq_capture()
+        참고.
+        """
+        data = request_hq_capture()
+        if data is None:
+            self.send_response(503)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "image/jpeg")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def log_message(self, format, *args):
         pass  # 매 프레임마다 접속 로그 찍히면 시끄러워서 끔

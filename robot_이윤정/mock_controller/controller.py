@@ -285,6 +285,7 @@ def _move(command: str) -> None:
 
 
 STREAM_SNAPSHOT_URL = f"http://localhost:{os.environ.get('STREAM_PORT', '8090')}/snapshot.jpg"
+STREAM_HQ_SNAPSHOT_URL = f"http://localhost:{os.environ.get('STREAM_PORT', '8090')}/hq_snapshot.jpg"
 
 
 def _grab_frame_from_stream_server():
@@ -310,6 +311,33 @@ def _grab_frame_from_stream_server():
         return frame
     except Exception:
         return None  # 스트리밍 서버가 안 떠있거나 응답 없음 — 조용히 다음 방법으로
+
+
+def _grab_frame_hq_from_stream_server():
+    """
+    stream_server.py의 /hq_snapshot.jpg를 호출해서 고해상도 사진을 받는다.
+
+    카메라는 한 번에 한 프로세스만 열 수 있어서, stream_server가 이미
+    rpicam-vid로 카메라를 붙잡고 있는 상태에서 여기(controller.py)가
+    직접 rpicam-still을 또 열면 화면이 순간적으로 깨지는 문제가 있었다
+    (2026.08.30) — 그래서 stream_server 안에서 "스트리밍 잠깐 끄고
+    고해상도로 찍고 다시 켜기"를 조율하도록 만들고, 여기서는 그 결과만
+    받아온다. 타임아웃을 넉넉히 준다(스트리밍 정지+rpicam-still 촬영이
+    합쳐져서 시간이 좀 걸림).
+    """
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(STREAM_HQ_SNAPSHOT_URL, timeout=10) as resp:
+            data = resp.read()
+        arr = np.frombuffer(data, dtype=np.uint8)
+        frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if frame is not None:
+            print("[ROBOT] 스트리밍 서버 경유 고해상도 촬영 완료")
+        return frame
+    except Exception as exc:
+        print(f"[ROBOT] 고해상도 촬영(stream_server 경유) 실패: {exc}")
+        return None  # stream_server가 안 떠있으면 아래 직접 촬영으로 넘어감
 
 
 def _grab_frame_rpicam():
@@ -376,15 +404,19 @@ def _grab_frame(high_quality: bool = False):
     환경 다 돌아간다. "이미지를 저장/전달하는 방식"(_capture)과 분리해둔
     덕분에 이 함수 안쪽만 통째로 교체해서 실물로 전환할 수 있었다.
 
-    high_quality=True면 stream_server 재사용을 건너뛰고 바로 고해상도
-    직접 촬영(_grab_frame_rpicam(), 1296x972)을 쓴다. 분실물 등록용
-    사진은 YOLO 인식 정확도가 중요한데, stream_server가 스트리밍용으로
-    찍는 저해상도(640x480) 압축 프레임을 재사용하면 인식률이 떨어지는
-    문제가 있었다(2026.08.30 — 예전엔 잘 인식되던 물병이 갑자기 안 잡힘,
-    원인은 그 사이 stream_server를 계속 켜두게 되면서 저해상도 프레임이
-    재사용되기 시작한 것). 이 순간엔 로봇이 이미 멈춰있어서 카메라
-    충돌(스트리밍과 직접촬영 동시 사용) 걱정 없이 안전하게 직접 촬영할
-    수 있다.
+    high_quality=True면 저해상도(640x480) 스트리밍 프레임 재사용 대신
+    고해상도(1296x972)로 찍는다. 분실물 등록용 사진은 YOLO 인식 정확도가
+    중요한데, 저해상도 압축 프레임을 재사용하면 인식률이 떨어지는 문제가
+    있었다(2026.08.30 — 예전엔 잘 인식되던 물병이 갑자기 안 잡힘, 원인은
+    그 사이 stream_server를 계속 켜두게 되면서 저해상도 프레임이
+    재사용되기 시작한 것).
+
+    처음엔 이럴 때 바로 _grab_frame_rpicam()으로 직접 찍게 했는데, 카메라는
+    한 번에 한 프로세스만 열 수 있어서 stream_server(rpicam-vid)가 떠있는
+    채로 그러면 화면이 순간적으로 깨지는 문제가 또 생겼다(2026.08.30) —
+    그래서 stream_server의 /hq_snapshot.jpg를 거쳐서, 그쪽에서 스트리밍을
+    잠깐 멈추고 찍은 뒤 재개하도록 조율한다. stream_server가 안 떠있으면
+    (응답 없으면) 카메라가 비어있다는 뜻이니 그냥 직접 찍어도 안전하다.
 
     반환값: cv2 이미지(numpy 배열) 또는 실패 시 None.
     """
@@ -394,6 +426,9 @@ def _grab_frame(high_quality: bool = False):
 
     if RPICAM_STILL:
         if high_quality:
+            frame = _grab_frame_hq_from_stream_server()
+            if frame is not None:
+                return frame
             return _grab_frame_rpicam()
         frame = _grab_frame_from_stream_server()
         if frame is not None:
