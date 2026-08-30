@@ -95,6 +95,15 @@ PATROL_SPEED = 40
 # 바퀴 속도(2026.08.30 추가, 아래 _patrol_steer 참고).
 PATROL_TURN_SPEED = 15
 
+# 라인을 완전히 놓쳤을 때(4개 센서 다 흰색) 제자리에서 좌우로 번갈아
+# 돌면서 라인을 다시 찾는 속도 — "천천히" 요청 반영해서 PATROL_SPEED보다도
+# 낮게 잡음(2026.08.30, 아래 _patrol_steer 참고).
+SEARCH_SPIN_SPEED = 20
+
+# 검색 중 방향을 바꾸는 주기(초) — 이보다 짧으면 너무 빨리 왔다갔다 해서
+# 라인을 스쳐 지나가기만 하고 못 잡을 수 있음.
+SEARCH_SWITCH_SEC = 1.0
+
 # 이동 명령이 실제로 걸리는 시간(초). mock 모드에서는 흉내내는 sleep 시간으로,
 # 실물 모드에서는 "이 시간만큼 움직이고 자동으로 멈춘다"는 의미로 쓰인다.
 MOVE_DURATION_SEC = 1.5
@@ -446,7 +455,15 @@ def _patrol_steer(l1: int, l2: int, r1: int, r2: int) -> None:
     elif r1 == 0:
         _car.Control_Car(PATROL_SPEED, gentle_turn_speed)  # 살짝 벗어남 → 약하게 우회전
     else:
-        _car.Car_Stop()
+        # 라인을 완전히 놓치면(4개 센서 다 흰색) 바로 멈추는 대신, 제자리에서
+        # 좌우로 천천히 번갈아 돌면서 라인을 다시 찾아본다(2026.08.30 요청).
+        # SEARCH_SWITCH_SEC마다 방향을 바꿔서 왔다갔다 "훑는" 동작을 만들고,
+        # 다음 주기에 센서가 다시 라인을 잡으면 이 else 분기를 벗어나 바로
+        # 정상 추적으로 복귀한다.
+        if int(time.time() / SEARCH_SWITCH_SEC) % 2 == 0:
+            _car.Car_Spin_Left(SEARCH_SPIN_SPEED, SEARCH_SPIN_SPEED)
+        else:
+            _car.Car_Spin_Right(SEARCH_SPIN_SPEED, SEARCH_SPIN_SPEED)
 
 
 def _patrol_loop() -> None:
