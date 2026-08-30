@@ -16,8 +16,16 @@ export default function RobotControl() {
   const showToast = useToast()
   const [pendingCommand, setPendingCommand] = useState(null)
   const [activeCommand, setActiveCommand] = useState(null)
-  const [patrolRunning, setPatrolRunning] = useState(false)
   const [captureFlash, setCaptureFlash] = useState(false)
+
+  // patrolRunning을 페이지 로컬 상태로만 두면, 순찰 중에 다른 페이지 갔다가
+  // 이 페이지로 돌아올 때마다 false로 초기화돼서 STOP 버튼이 비활성화되는
+  // 문제가 있었다(2026.08.30) — START를 한 번 더 눌러야만 STOP이 눌리는
+  // 상태가 됨. controller.py가 순찰 시작 시 last_command를 "patrol_start"로
+  // 남기고, 멈추면(수동정지/장애물/patrol_stop 무엇이든) 다른 값으로
+  // 바뀌므로, 로컬 상태 대신 여기서 실제 상태를 그대로 기준으로 삼는다 —
+  // 페이지를 오가도 항상 실제 로봇 상태와 일치한다.
+  const patrolRunning = status?.last_command === 'patrol_start'
 
   const controlsDisabled = offline || pendingCommand !== null || patrolRunning
 
@@ -68,13 +76,11 @@ export default function RobotControl() {
 
   const handlePatrolStart = async () => {
     if (patrolRunning || offline) return
-    setPatrolRunning(true)
     await runCommand('patrol_start', { silent: true })
     showToast('라인 트레이싱 자동순찰을 시작합니다.')
   }
 
   const handlePatrolStop = async () => {
-    setPatrolRunning(false)
     await runCommand('patrol_stop', { silent: true })
     showToast('자동순찰을 종료했습니다.', { tone: 'default' })
   }
