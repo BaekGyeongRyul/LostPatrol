@@ -138,9 +138,19 @@ OBSTACLE_DETECTION_ENABLED = True
 # 추가) — 정지 거리(OBSTACLE_STOP_DISTANCE_CM=20cm)가 너무 가까워서
 # 카메라로 물체가 제대로 안 잡히는 문제 때문에, 촬영 전에 약 20cm 정도
 # 더 물러나서 찍는다. 거리 센서가 따로 없어서 시간 기반 어림값이라,
-# 실물로 테스트해보면서 OBSTACLE_BACKUP_SEC을 조정해야 한다.
+# 실물로 테스트해보면서 OBSTACLE_BACKUP_SEC을 조정해야 한다. 0.4초는
+# 정지 마찰(스틱션) 이겨내는 데 대부분 쓰여서 실제로 거의 안 물러나는
+# 것처럼 보였음(2026.08.30) — 1.0초로 늘림.
 OBSTACLE_BACKUP_SPEED = MOVE_SPEED
-OBSTACLE_BACKUP_SEC = 0.4
+OBSTACLE_BACKUP_SEC = 1.0
+
+# 분실물 자동 등록(vision_조은수/detect_and_register.py)이 "같은 물체
+# CONSECUTIVE_REQUIRED(기본 2)번 연속 감지"를 요구하는데, 장애물 정지 시
+# 사진을 1장만 찍으면 그 카운트가 절대 2에 도달 못 해서 등록이 영영 안
+# 되는 문제가 있었음(2026.08.30). 그래서 장애물 감지 시 사진을 여러 장
+# 연속으로 찍어서 넘겨준다.
+OBSTACLE_CAPTURE_COUNT = 3
+OBSTACLE_CAPTURE_INTERVAL_SEC = 0.5
 
 CAPTURES_DIR = os.path.join(os.path.dirname(__file__), "data", "captures")
 
@@ -389,7 +399,10 @@ def _capture() -> None:
     frame = _grab_frame()
 
     if frame is not None:
-        filename = f"capture_{int(time.time())}.jpg"
+        # int(time.time())는 초 단위라, 짧은 간격으로 연속 촬영하면(장애물
+        # 감지 시 분실물 등록용 연속 촬영 등) 같은 초 안에서 파일명이 겹쳐
+        # 앞 사진을 덮어써버리는 문제가 있어서 밀리초 단위로 바꿈(2026.08.30).
+        filename = f"capture_{int(time.time() * 1000)}.jpg"
         path = os.path.join(CAPTURES_DIR, filename)
         # 주의: cv2.imwrite(path, frame)는 경로에 한글 등 non-ASCII 문자가
         # 있으면 Windows에서 에러 없이 조용히 실패한다(False만 반환).
@@ -555,11 +568,17 @@ def _patrol_loop() -> None:
                     _car.Car_Back(OBSTACLE_BACKUP_SPEED, OBSTACLE_BACKUP_SPEED)
                     time.sleep(OBSTACLE_BACKUP_SEC)
                     _car.Car_Stop()
-                # 여기서 찍은 사진은 vision_조은수/detect_and_register.py가
+                # 여기서 찍은 사진들은 vision_조은수/detect_and_register.py가
                 # data/captures/ 폴더를 감시하다가 자동으로 YOLO 분석 →
                 # Supabase(lost_items) 등록까지 이어서 처리한다(그 스크립트가
-                # 따로 실행 중이어야 함).
-                _capture()
+                # 따로 실행 중이어야 함). 그 스크립트가 "같은 물체
+                # CONSECUTIVE_REQUIRED번 연속 감지"를 요구하므로, 한 번만
+                # 찍으면 카운트가 못 쌓여서 등록이 안 됨 — 여러 장 연속 촬영.
+                print(f"[MOCK ROBOT] 분실물 등록용 연속 촬영 {OBSTACLE_CAPTURE_COUNT}장")
+                for i in range(OBSTACLE_CAPTURE_COUNT):
+                    _capture()
+                    if i < OBSTACLE_CAPTURE_COUNT - 1:
+                        time.sleep(OBSTACLE_CAPTURE_INTERVAL_SEC)
                 _patrol_active.clear()
                 _set_state("stopped", "patrol_stop(obstacle)")
                 return
