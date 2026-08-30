@@ -68,6 +68,12 @@ DEFAULT_LOCATION = os.environ.get("DEFAULT_LOCATION", "A구역")
 
 WATCH_INTERVAL_SEC = 3
 
+# 같은 종류 물건이 짧은 시간 안에 여러 번 등록되는 걸 막는 쿨다운(초).
+# 로봇이 장애물 감지→연속촬영을 여러 번 반복하면(테스트/재촬영 등) 매번
+# 새 lost_items 행이 쌓이는 문제가 있어서(2026.08.30), 같은 item_type이
+# 이 시간 안에 다시 조건을 채워도 재등록하지 않고 건너뛴다.
+REGISTER_COOLDOWN_SEC = int(os.environ.get("REGISTER_COOLDOWN_SEC", "300"))
+
 # 조은수 모델의 클래스 이름 -> 팀 Data Contract의 item_type 값.
 # 모델이 재학습되어 클래스가 바뀌면 여기만 고치면 된다.
 CLASS_NAME_MAP = {
@@ -143,7 +149,10 @@ def detect(image_path: str, model: YOLO):
 
 
 def run_watch(folder: str):
-    print(f"[VISION] {folder} 감시 시작 (신뢰도>={CONFIDENCE_THRESHOLD}, 연속{CONSECUTIVE_REQUIRED}회 필요)")
+    print(
+        f"[VISION] {folder} 감시 시작 (신뢰도>={CONFIDENCE_THRESHOLD}, 연속{CONSECUTIVE_REQUIRED}회 필요, "
+        f"같은 종류 재등록 쿨다운 {REGISTER_COOLDOWN_SEC}초)"
+    )
     model = YOLO(MODEL_PATH)
 
     seen_files = set()
@@ -152,6 +161,7 @@ def run_watch(folder: str):
 
     last_class = None
     last_count = 0
+    last_registered = {}  # item_type -> 마지막으로 등록한 시각(time.time())
 
     while True:
         try:
@@ -177,8 +187,15 @@ def run_watch(folder: str):
                     print(f"[VISION] {filename}: {item_type} (conf={conf:.2f}, 연속 {last_count}회)")
 
                     if last_count >= CONSECUTIVE_REQUIRED:
-                        row = upload_and_register(path, item_type, conf)
-                        print(f"[VISION] lost_items 등록 완료: id={row.get('id')} item_type={item_type}")
+                        now = time.time()
+                        last_time = last_registered.get(item_type)
+                        if last_time is not None and now - last_time < REGISTER_COOLDOWN_SEC:
+                            remaining = int(REGISTER_COOLDOWN_SEC - (now - last_time))
+                            print(f"[VISION] {item_type} 쿨다운 중(재등록까지 {remaining}초) — 등록 건너뜀")
+                        else:
+                            row = upload_and_register(path, item_type, conf)
+                            last_registered[item_type] = now
+                            print(f"[VISION] lost_items 등록 완료: id={row.get('id')} item_type={item_type}")
                         last_class, last_count = None, 0  # 같은 물체를 반복 등록하지 않게 리셋
         except Exception as exc:
             # 다른 프로그램들과 동일한 원칙: 죽지 않고 로그 남기고 계속 시도
