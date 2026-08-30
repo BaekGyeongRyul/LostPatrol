@@ -130,6 +130,11 @@ HEARTBEAT_INTERVAL_SEC = 5
 # TBD - 팀 협의 후 확정. 초음파 센서 실물이 없어서 지금은 안 쓰이는 자리표시자 값.
 OBSTACLE_STOP_DISTANCE_CM = 20
 
+# 초음파 센서 배선/신호가 아직 안 맞아서 거리값이 오작동(순찰이 계속
+# 장애물로 오인해 멈춤)하는 문제가 있어 임시로 꺼둠(2026.08.30) — 순찰
+# 시연 촬영 방해되지 않게. ③ 장애물 감지 시연 찍을 때 True로 되돌릴 것.
+OBSTACLE_DETECTION_ENABLED = False
+
 CAPTURES_DIR = os.path.join(os.path.dirname(__file__), "data", "captures")
 
 # 현재 상태를 메인 루프/heartbeat 스레드/순찰 스레드가 공유해서 참조한다.
@@ -202,6 +207,8 @@ def _check_obstacle() -> bool:
     GPIO가 없으면(노트북 등) 항상 False(mock). 실물에서는 거리를 재서
     OBSTACLE_STOP_DISTANCE_CM 이하면 True.
     """
+    if not OBSTACLE_DETECTION_ENABLED:
+        return False
     distance = _measure_distance_cm()
     if distance is None:
         return False
