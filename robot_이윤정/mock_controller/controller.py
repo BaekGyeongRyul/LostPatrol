@@ -192,6 +192,7 @@ def _check_obstacle() -> bool:
     OBSTACLE_STOP_DISTANCE_CM 이하면 True.
     """
     distance = _measure_distance_cm()
+    print(f"[MOCK ROBOT] (debug) 초음파 거리={distance}")  # 임시 디버그 — 원인 확인되면 지울 것
     if distance is None:
         return False
     return distance <= OBSTACLE_STOP_DISTANCE_CM
