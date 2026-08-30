@@ -108,6 +108,13 @@ SEARCH_SPIN_SPEED = 35
 # 라인을 스쳐 지나가기만 하고 못 잡을 수 있음.
 SEARCH_SWITCH_SEC = 1.0
 
+# 직각 코너 대응(2026.08.30 추가): 라인을 놓치기 직전 어느 쪽으로 틀고
+# 있었는지 기억해뒀다가, 완전히 놓치면 무작정 좌우 번갈아 찾기 전에 그
+# 방향으로 먼저 이 시간(초)만큼 계속 시도한다 — 직각 코너는 대부분
+# 이걸로 바로 재인식된다. 이 시간 안에 못 찾으면 그때부터 좌우 번갈아
+# 검색(SEARCH_SWITCH_SEC)으로 전환한다.
+CORNER_BIAS_SEC = 2.0
+
 # 이동 명령이 실제로 걸리는 시간(초). mock 모드에서는 흉내내는 sleep 시간으로,
 # 실물 모드에서는 "이 시간만큼 움직이고 자동으로 멈춘다"는 의미로 쓰인다.
 MOVE_DURATION_SEC = 1.5
@@ -425,6 +432,12 @@ def _read_tracking():
     )
 
 
+# 라인을 놓치기 직전 어느 쪽으로 틀고 있었는지 기억(직각 코너 대응용)과,
+# 놓친 이후 시간을 재기 위한 상태. _patrol_steer가 매 주기 갱신한다.
+_last_turn_direction = "left"
+_lost_since = None
+
+
 def _patrol_steer(l1: int, l2: int, r1: int, r2: int) -> None:
     """
     센서 값을 보고 아주 짧게 방향을 조정한다. 간단한 규칙 기반:
@@ -443,31 +456,58 @@ def _patrol_steer(l1: int, l2: int, r1: int, r2: int) -> None:
     앞으로 나아가면서 커브를 그리도록 함. 벗어난 정도(안쪽/바깥쪽)에 따라
     회전 쪽 바퀴 속도를 다르게 줘서(안쪽만 벗어남=살짝 느림, 바깥쪽까지
     벗어남=많이 느림) 피드백 세기가 벗어난 정도에 비례하게 함.
+
+    직각 코너 대응(2026.08.30): 직각 코너는 대부분 "한쪽 센서로 계속
+    치우치다가 → 갑자기 4개 다 흰색(완전히 놓침)"으로 이어진다. 놓치기
+    직전에 어느 쪽으로 틀고 있었는지(_last_turn_direction) 이미 힌트가
+    있으므로, 라인을 놓친 순간 무작정 좌우 번갈아 찾기 전에 CORNER_BIAS_SEC
+    동안은 그 방향으로만 계속 돌아본다 — 직각 코너는 이걸로 바로 재인식됨.
+    그 시간 안에 못 찾으면(진짜 라인을 완전히 이탈한 경우) 그때부터 기존의
+    좌우 번갈아 검색으로 전환한다.
     """
+    global _last_turn_direction, _lost_since
     if _car is None:
         return
     gentle_turn_speed = PATROL_SPEED // 2  # 안쪽 센서만 벗어났을 때(살짝 보정)
 
     if l2 == 0 and r1 == 0:
+        _lost_since = None
         _car.Control_Car(PATROL_SPEED, PATROL_SPEED)
     elif l1 == 0:
+        _lost_since = None
+        _last_turn_direction = "left"
         _car.Control_Car(PATROL_TURN_SPEED, PATROL_SPEED)  # 많이 벗어남 → 세게 좌회전(전진 유지)
     elif l2 == 0:
+        _lost_since = None
+        _last_turn_direction = "left"
         _car.Control_Car(gentle_turn_speed, PATROL_SPEED)  # 살짝 벗어남 → 약하게 좌회전
     elif r2 == 0:
+        _lost_since = None
+        _last_turn_direction = "right"
         _car.Control_Car(PATROL_SPEED, PATROL_TURN_SPEED)  # 많이 벗어남 → 세게 우회전(전진 유지)
     elif r1 == 0:
+        _lost_since = None
+        _last_turn_direction = "right"
         _car.Control_Car(PATROL_SPEED, gentle_turn_speed)  # 살짝 벗어남 → 약하게 우회전
     else:
-        # 라인을 완전히 놓치면(4개 센서 다 흰색) 바로 멈추는 대신, 제자리에서
-        # 좌우로 천천히 번갈아 돌면서 라인을 다시 찾아본다(2026.08.30 요청).
-        # SEARCH_SWITCH_SEC마다 방향을 바꿔서 왔다갔다 "훑는" 동작을 만들고,
-        # 다음 주기에 센서가 다시 라인을 잡으면 이 else 분기를 벗어나 바로
-        # 정상 추적으로 복귀한다.
-        if int(time.time() / SEARCH_SWITCH_SEC) % 2 == 0:
-            _car.Car_Spin_Left(SEARCH_SPIN_SPEED, SEARCH_SPIN_SPEED)
+        # 라인을 완전히 놓치면(4개 센서 다 흰색) 바로 멈추는 대신 재탐색한다.
+        now = time.time()
+        if _lost_since is None:
+            _lost_since = now
+
+        if now - _lost_since < CORNER_BIAS_SEC:
+            # 직각 코너 대응: 놓치기 직전 방향으로 먼저 계속 시도
+            if _last_turn_direction == "left":
+                _car.Car_Spin_Left(SEARCH_SPIN_SPEED, SEARCH_SPIN_SPEED)
+            else:
+                _car.Car_Spin_Right(SEARCH_SPIN_SPEED, SEARCH_SPIN_SPEED)
         else:
-            _car.Car_Spin_Right(SEARCH_SPIN_SPEED, SEARCH_SPIN_SPEED)
+            # 그래도 못 찾으면 좌우 번갈아 훑기(SEARCH_SWITCH_SEC마다 전환)
+            elapsed = now - _lost_since - CORNER_BIAS_SEC
+            if int(elapsed / SEARCH_SWITCH_SEC) % 2 == 0:
+                _car.Car_Spin_Left(SEARCH_SPIN_SPEED, SEARCH_SPIN_SPEED)
+            else:
+                _car.Car_Spin_Right(SEARCH_SPIN_SPEED, SEARCH_SPIN_SPEED)
 
 
 def _patrol_loop() -> None:
