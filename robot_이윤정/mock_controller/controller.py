@@ -138,11 +138,12 @@ OBSTACLE_DETECTION_ENABLED = True
 # 추가) — 정지 거리(OBSTACLE_STOP_DISTANCE_CM=20cm)가 너무 가까워서
 # 카메라로 물체가 제대로 안 잡히는 문제 때문에, 촬영 전에 약 20cm 정도
 # 더 물러나서 찍는다. 거리 센서가 따로 없어서 시간 기반 어림값이라,
-# 실물로 테스트해보면서 OBSTACLE_BACKUP_SEC을 조정해야 한다. 0.4초는
-# 정지 마찰(스틱션) 이겨내는 데 대부분 쓰여서 실제로 거의 안 물러나는
-# 것처럼 보였음(2026.08.30) — 1.0초로 늘림.
-OBSTACLE_BACKUP_SPEED = MOVE_SPEED
-OBSTACLE_BACKUP_SEC = 1.0
+# 실물로 테스트해보면서 값을 조정해야 한다. 0.4초는 정지 마찰(스틱션)
+# 이겨내는 데 대부분 쓰여서 실제로 거의 안 물러나는 것처럼 보였고
+# (2026.08.30), MOVE_SPEED(150)+1.0초는 반대로 너무 빠르고 많이 감 —
+# PATROL_SPEED 수준으로 낮추고 시간도 줄임.
+OBSTACLE_BACKUP_SPEED = PATROL_SPEED
+OBSTACLE_BACKUP_SEC = 0.5
 
 # 분실물 자동 등록(vision_조은수/detect_and_register.py)이 "같은 물체
 # CONSECUTIVE_REQUIRED(기본 2)번 연속 감지"를 요구하는데, 장애물 정지 시
