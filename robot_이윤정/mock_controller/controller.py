@@ -367,7 +367,7 @@ def _grab_frame_webcam():
     return frame
 
 
-def _grab_frame():
+def _grab_frame(high_quality: bool = False):
     """
     "카메라에서 이미지 한 장을 가져오는" 부분만 따로 뺀 함수.
 
@@ -376,6 +376,16 @@ def _grab_frame():
     환경 다 돌아간다. "이미지를 저장/전달하는 방식"(_capture)과 분리해둔
     덕분에 이 함수 안쪽만 통째로 교체해서 실물로 전환할 수 있었다.
 
+    high_quality=True면 stream_server 재사용을 건너뛰고 바로 고해상도
+    직접 촬영(_grab_frame_rpicam(), 1296x972)을 쓴다. 분실물 등록용
+    사진은 YOLO 인식 정확도가 중요한데, stream_server가 스트리밍용으로
+    찍는 저해상도(640x480) 압축 프레임을 재사용하면 인식률이 떨어지는
+    문제가 있었다(2026.08.30 — 예전엔 잘 인식되던 물병이 갑자기 안 잡힘,
+    원인은 그 사이 stream_server를 계속 켜두게 되면서 저해상도 프레임이
+    재사용되기 시작한 것). 이 순간엔 로봇이 이미 멈춰있어서 카메라
+    충돌(스트리밍과 직접촬영 동시 사용) 걱정 없이 안전하게 직접 촬영할
+    수 있다.
+
     반환값: cv2 이미지(numpy 배열) 또는 실패 시 None.
     """
     if cv2 is None:
@@ -383,6 +393,8 @@ def _grab_frame():
         return None
 
     if RPICAM_STILL:
+        if high_quality:
+            return _grab_frame_rpicam()
         frame = _grab_frame_from_stream_server()
         if frame is not None:
             return frame
@@ -390,14 +402,14 @@ def _grab_frame():
     return _grab_frame_webcam()
 
 
-def _capture() -> None:
+def _capture(high_quality: bool = False) -> None:
     """
     촬영을 처리한다.
     _grab_frame()으로 이미지를 가져와서 data/captures/ 에 jpg로 저장한다.
     가져오기 실패 시(카메라 없음 등)에는 placeholder 파일을 남긴다.
     """
     os.makedirs(CAPTURES_DIR, exist_ok=True)
-    frame = _grab_frame()
+    frame = _grab_frame(high_quality=high_quality)
 
     if frame is not None:
         # int(time.time())는 초 단위라, 짧은 간격으로 연속 촬영하면(장애물
@@ -579,9 +591,9 @@ def _patrol_loop() -> None:
                 # 따로 실행 중이어야 함). 그 스크립트가 "같은 물체
                 # CONSECUTIVE_REQUIRED번 연속 감지"를 요구하므로, 한 번만
                 # 찍으면 카운트가 못 쌓여서 등록이 안 됨 — 여러 장 연속 촬영.
-                print(f"[MOCK ROBOT] 분실물 등록용 연속 촬영 {OBSTACLE_CAPTURE_COUNT}장")
+                print(f"[MOCK ROBOT] 분실물 등록용 연속 촬영 {OBSTACLE_CAPTURE_COUNT}장 (고해상도)")
                 for i in range(OBSTACLE_CAPTURE_COUNT):
-                    _capture()
+                    _capture(high_quality=True)
                     if i < OBSTACLE_CAPTURE_COUNT - 1:
                         time.sleep(OBSTACLE_CAPTURE_INTERVAL_SEC)
                 _patrol_active.clear()
