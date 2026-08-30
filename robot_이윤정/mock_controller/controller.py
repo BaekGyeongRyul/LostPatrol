@@ -86,8 +86,14 @@ MOVE_SPEED = 150
 
 # 자동순찰 중 조향 속도는 MOVE_SPEED보다 낮게 — 실물 테스트에서 꺾을 때
 # 너무 빨리 돌아서 라인을 넘어가버리고(오버슈트) 이탈하는 문제가 있어서
-# 순찰 전용으로 더 느린 속도를 따로 둠(2026.08.27).
-PATROL_SPEED = 80
+# 순찰 전용으로 더 느린 속도를 따로 둠(2026.08.27). 2026.08.30 실물
+# 테스트에서 더 천천히 가야 안정적이라는 피드백으로 80->40으로 낮춤.
+PATROL_SPEED = 40
+
+# 라인 이탈 정도에 따라 안쪽 센서(살짝 벗어남)/바깥쪽 센서(많이 벗어남)를
+# 구분해서 조향 세기를 다르게 준다 — 바깥쪽 센서가 반응했을 때 회전 쪽
+# 바퀴 속도(2026.08.30 추가, 아래 _patrol_steer 참고).
+PATROL_TURN_SPEED = 15
 
 # 이동 명령이 실제로 걸리는 시간(초). mock 모드에서는 흉내내는 sleep 시간으로,
 # 실물 모드에서는 "이 시간만큼 움직이고 자동으로 멈춘다"는 의미로 쓰인다.
@@ -410,20 +416,35 @@ def _patrol_steer(l1: int, l2: int, r1: int, r2: int) -> None:
     """
     센서 값을 보고 아주 짧게 방향을 조정한다. 간단한 규칙 기반:
     - 안쪽 두 센서(L2, R1)가 둘 다 검은선 위 → 직진
-    - 왼쪽으로 라인이 치우침(L1/L2가 검은선) → 좌회전으로 보정
-    - 오른쪽으로 치우침(R1/R2가 검은선) → 우회전으로 보정
+    - 안쪽 센서 하나만 벗어남(L2 또는 R1) → 살짝만 그쪽으로 보정
+    - 바깥쪽 센서까지 벗어남(L1 또는 R2) → 많이 벗어난 거라 더 세게 보정
     - 전부 흰색(라인을 완전히 놓침) → 일단 정지
     실물 캘리브레이션 전 초기 버전이라, 나중에 실제 순찰맵으로 테스트하며
     조정이 더 필요할 수 있다.
+
+    2026.08.30 실물 테스트 피드백: 바깥쪽 센서(L1/R2) 반응 시 원래
+    Car_Spin_Left/Right(제자리 회전, 양쪽 바퀴가 서로 반대 방향)를 썼는데,
+    그러면 전진을 안 하고 그 자리에서만 빙글 돌아서 "오른쪽 센서 반응했는데
+    왜 앞으로 안 가냐"는 문제가 있었음. Ctrl_Car 기반 Control_Car()로
+    바꿔서 양쪽 바퀴 다 전진 방향은 유지한 채 속도 차이만 줘서, 계속
+    앞으로 나아가면서 커브를 그리도록 함. 벗어난 정도(안쪽/바깥쪽)에 따라
+    회전 쪽 바퀴 속도를 다르게 줘서(안쪽만 벗어남=살짝 느림, 바깥쪽까지
+    벗어남=많이 느림) 피드백 세기가 벗어난 정도에 비례하게 함.
     """
     if _car is None:
         return
+    gentle_turn_speed = PATROL_SPEED // 2  # 안쪽 센서만 벗어났을 때(살짝 보정)
+
     if l2 == 0 and r1 == 0:
-        _car.Car_Run(PATROL_SPEED, PATROL_SPEED)
-    elif l1 == 0 or l2 == 0:
-        _car.Car_Spin_Left(PATROL_SPEED, PATROL_SPEED)
-    elif r1 == 0 or r2 == 0:
-        _car.Car_Spin_Right(PATROL_SPEED, PATROL_SPEED)
+        _car.Control_Car(PATROL_SPEED, PATROL_SPEED)
+    elif l1 == 0:
+        _car.Control_Car(PATROL_TURN_SPEED, PATROL_SPEED)  # 많이 벗어남 → 세게 좌회전(전진 유지)
+    elif l2 == 0:
+        _car.Control_Car(gentle_turn_speed, PATROL_SPEED)  # 살짝 벗어남 → 약하게 좌회전
+    elif r2 == 0:
+        _car.Control_Car(PATROL_SPEED, PATROL_TURN_SPEED)  # 많이 벗어남 → 세게 우회전(전진 유지)
+    elif r1 == 0:
+        _car.Control_Car(PATROL_SPEED, gentle_turn_speed)  # 살짝 벗어남 → 약하게 우회전
     else:
         _car.Car_Stop()
 
