@@ -2,7 +2,7 @@
 
 조은수 OpenCV / Roboflow / YOLO 코드 위치
 
-담당 범위: OpenCV, Roboflow, YOLO, Dataset 구성, 분실물 객체 감지(umbrella/bottle/backpack), AI 추론, Supabase `lost_items`/Storage 연동.
+담당 범위: OpenCV, Roboflow, YOLO, Dataset 구성, 분실물 객체 감지(wallet/bottle/backpack), AI 추론, Supabase `lost_items`/Storage 연동.
 
 연동 규격과 구현 가이드는 다음 문서를 참고하세요.
 

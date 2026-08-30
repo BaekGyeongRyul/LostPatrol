@@ -16,7 +16,7 @@ Supabase(Storage + lost_items)에 자동 등록한다.
    폴더 — 로봇 프로세스랑은 완전히 독립적으로, 파일 시스템만 공유한다)
 2. 각 새 사진에 대해 YOLO(best.pt)로 물체를 감지한다.
 3. 감지된 물체 중 신뢰도가 CONFIDENCE_THRESHOLD 이상이고, 우리가 다루는
-   3종(backpack/umbrella/waterbottle→bottle) 중 하나면 "분실물 후보"로
+   3종(backpack/wallet/waterbottle→bottle) 중 하나면 "분실물 후보"로
    본다.
 4. 같은 클래스가 CONSECUTIVE_REQUIRED번 연속 감지되면(오탐 방지), 그 사진을
    Supabase Storage(lost-item-photos)에 업로드하고 lost_items에 새 행을
@@ -78,7 +78,7 @@ REGISTER_COOLDOWN_SEC = int(os.environ.get("REGISTER_COOLDOWN_SEC", "300"))
 # 모델이 재학습되어 클래스가 바뀌면 여기만 고치면 된다.
 CLASS_NAME_MAP = {
     "backpack": "backpack",
-    "umbrella": "umbrella",
+    "wallet": "wallet",
     "waterbottle": "bottle",
 }
 

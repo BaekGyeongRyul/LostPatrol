@@ -75,7 +75,7 @@ export const mockStore = {
 }
 
 function simulateCapture() {
-  const types = ['backpack', 'umbrella', 'bottle', 'handbag', 'suitcase']
+  const types = ['backpack', 'wallet', 'bottle', 'handbag', 'suitcase']
   const type = types[Math.floor(Math.random() * types.length)]
   const now = new Date().toISOString()
   const newItem = {

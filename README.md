@@ -62,7 +62,7 @@ LostPatrol_Git/
 
 ## 분실물 Class (정확히 3종, 고정)
 
-- `umbrella` (우산)
+- `wallet` (지갑)
 - `bottle` (물병)
 - `backpack` (가방)
 

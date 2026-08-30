@@ -80,7 +80,7 @@ Supabase 프로젝트: `uityxtduglbshnvkstvx` (URL: `https://uityxtduglbshnvkstv
 |---|---|---|---|
 | id | bigint (identity) | 자동증가 | PK |
 | image_url | text | NULL | Storage 공개 URL |
-| item_type | text | NULL | `umbrella` / `bottle` / `backpack` |
+| item_type | text | NULL | `wallet` / `bottle` / `backpack` |
 | description | text | NULL | 선택 항목 (없으면 NULL 또는 빈 값 허용, 필수 아님) |
 | confidence | numeric | NULL | **0~1 사이 숫자** (예: 0.91 = 웹에서 91%) |
 | detected_at | timestamptz | now() | 탐지 시각 |
@@ -92,7 +92,7 @@ Supabase 프로젝트: `uityxtduglbshnvkstvx` (URL: `https://uityxtduglbshnvkstv
 
 | DB 값 | 웹 표시 |
 |---|---|
-| `umbrella` | 우산 |
+| `wallet` | 지갑 |
 | `bottle` | 물병 |
 | `backpack` | 가방(백팩) |
 

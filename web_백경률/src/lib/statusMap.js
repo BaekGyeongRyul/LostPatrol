@@ -45,7 +45,7 @@ export const ITEM_TYPE_LABEL = {
   backpack: '가방(백팩)',
   handbag: '핸드백',
   suitcase: '캐리어',
-  umbrella: '우산',
+  wallet: '지갑',
   bottle: '물병',
   unknown: '미분류',
 }
@@ -53,7 +53,7 @@ export const ITEM_TYPE_LABEL = {
 export const ITEM_TYPE_FILTERS = [
   { value: 'all', label: '전체 종류' },
   { value: 'backpack', label: 'Backpack' },
-  { value: 'umbrella', label: 'Umbrella' },
+  { value: 'wallet', label: 'Wallet' },
   { value: 'bottle', label: 'Bottle' },
   { value: 'handbag', label: 'Handbag' },
   { value: 'suitcase', label: 'Suitcase' },

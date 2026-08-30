@@ -7,9 +7,9 @@ const minutesAgo = (min) => new Date(Date.now() - min * 60 * 1000).toISOString()
 export const initialMockLostItems = [
   {
     id: 1001,
-    image_url: mockPhotoFor('umbrella'),
-    item_type: 'umbrella',
-    description: '벤치 옆에 놓인 검은색 접이식 우산으로 보입니다. 손잡이 부분에 스트랩이 달려 있습니다.',
+    image_url: mockPhotoFor('wallet'),
+    item_type: 'wallet',
+    description: '벤치 옆에 놓인 검은색 가죽 지갑으로 보입니다. 카드 슬롯이 옆으로 살짝 열려 있습니다.',
     confidence: 0.91,
     detected_at: minutesAgo(6),
     location: 'B구역',
@@ -62,9 +62,9 @@ export const initialMockLostItems = [
   },
   {
     id: 1006,
-    image_url: mockPhotoFor('umbrella'),
-    item_type: 'umbrella',
-    description: '투명 비닐 우산이 놓여 있으나 형태가 뒤틀려 있어 분실물 여부가 불확실합니다.',
+    image_url: mockPhotoFor('wallet'),
+    item_type: 'wallet',
+    description: '갈색 카드지갑이 놓여 있으나 각도가 애매해 분실물 여부가 불확실합니다.',
     confidence: 0.38,
     detected_at: minutesAgo(260),
     location: 'D구역',

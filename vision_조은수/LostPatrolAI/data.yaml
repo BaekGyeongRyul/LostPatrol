@@ -3,11 +3,11 @@ val: ../valid/images
 test: ../test/images
 
 nc: 3
-names: ['backpack', 'umbrella', 'waterbottle']
+names: ['backpack', 'wallet', 'waterbottle']
 
 roboflow:
   workspace: -ym7za
   project: lostitem-rgihn
-  version: 2
+  version: 3
   license: CC BY 4.0
-  url: https://universe.roboflow.com/-ym7za/lostitem-rgihn/dataset/2
+  url: https://universe.roboflow.com/-ym7za/lostitem-rgihn/dataset/3
