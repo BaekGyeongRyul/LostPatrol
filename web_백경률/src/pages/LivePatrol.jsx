@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import LiveCameraView from '../components/LiveCameraView'
 import SafetyCard from '../components/SafetyCard'
 import RobotStatusPill from '../components/RobotStatusPill'
@@ -17,7 +18,10 @@ export default function LivePatrol() {
   const { events } = usePatrolEvents({ limit: 8 })
   const { feed } = useCameraFeed()
 
-  const cameraOnline = Boolean(feed?.cameraStreamUrl)
+  // streamUrl 문자열이 설정돼있는지만 보면(예전 방식) 서버가 꺼져있어도
+  // 항상 ONLINE으로 나와서(2026.08.30), LiveCameraView가 실제 이미지
+  // 로드 성공/실패를 감지한 결과를 여기로 받아서 정확하게 표시한다.
+  const [cameraOnline, setCameraOnline] = useState(false)
   const zone = feed?.zone ?? '—'
 
   const fireLabel = !safety ? '—' : safety.fire.severity === 'normal' ? 'NORMAL' : 'FIRE WARNING'
@@ -32,7 +36,7 @@ export default function LivePatrol() {
         <div className="panel__header">
           <h2>Live Camera</h2>
         </div>
-        <LiveCameraView streamUrl={feed?.cameraStreamUrl} />
+        <LiveCameraView streamUrl={feed?.cameraStreamUrl} onStatusChange={setCameraOnline} />
       </section>
 
       <section className="panel">
