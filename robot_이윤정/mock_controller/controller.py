@@ -562,6 +562,10 @@ def _patrol_loop() -> None:
                 print(f"[MOCK ROBOT] 전방 {OBSTACLE_STOP_DISTANCE_CM}cm 이내 장애물 감지 → 안전 정지")
                 if _car is not None:
                     _car.Car_Stop()
+                    # 전진 중이던 상태에서 바로 후진 명령을 주면 모터 드라이버가
+                    # 방향 전환을 못 받아들여서 안 움직이는 문제가 있었음
+                    # (2026.08.30) — 완전히 멈출 시간을 잠깐 준 다음 후진한다.
+                    time.sleep(0.3)
                     # 정지 거리(20cm)가 카메라로 찍기엔 너무 가까워서, 촬영
                     # 전에 약간 후진해서 물체 전체가 화면에 들어오게 함.
                     print("[MOCK ROBOT] 분실물 촬영을 위해 약간 후진")
