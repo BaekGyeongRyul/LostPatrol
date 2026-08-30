@@ -135,6 +135,14 @@ OBSTACLE_STOP_DISTANCE_CM = 20
 # 시연 촬영 방해되지 않게. ③ 장애물 감지 시연 찍을 때 True로 되돌릴 것.
 OBSTACLE_DETECTION_ENABLED = False
 
+# 장애물 감지 시 사진을 찍기 전에 잠깐 후진하는 속도/시간(2026.08.30
+# 추가) — 정지 거리(OBSTACLE_STOP_DISTANCE_CM=20cm)가 너무 가까워서
+# 카메라로 물체가 제대로 안 잡히는 문제 때문에, 촬영 전에 약 20cm 정도
+# 더 물러나서 찍는다. 거리 센서가 따로 없어서 시간 기반 어림값이라,
+# 실물로 테스트해보면서 OBSTACLE_BACKUP_SEC을 조정해야 한다.
+OBSTACLE_BACKUP_SPEED = MOVE_SPEED
+OBSTACLE_BACKUP_SEC = 0.4
+
 CAPTURES_DIR = os.path.join(os.path.dirname(__file__), "data", "captures")
 
 # 현재 상태를 메인 루프/heartbeat 스레드/순찰 스레드가 공유해서 참조한다.
@@ -541,6 +549,17 @@ def _patrol_loop() -> None:
                 print(f"[MOCK ROBOT] 전방 {OBSTACLE_STOP_DISTANCE_CM}cm 이내 장애물 감지 → 안전 정지")
                 if _car is not None:
                     _car.Car_Stop()
+                    # 정지 거리(20cm)가 카메라로 찍기엔 너무 가까워서, 촬영
+                    # 전에 약간 후진해서 물체 전체가 화면에 들어오게 함.
+                    print("[MOCK ROBOT] 분실물 촬영을 위해 약간 후진")
+                    _car.Car_Back(OBSTACLE_BACKUP_SPEED, OBSTACLE_BACKUP_SPEED)
+                    time.sleep(OBSTACLE_BACKUP_SEC)
+                    _car.Car_Stop()
+                # 여기서 찍은 사진은 vision_조은수/detect_and_register.py가
+                # data/captures/ 폴더를 감시하다가 자동으로 YOLO 분석 →
+                # Supabase(lost_items) 등록까지 이어서 처리한다(그 스크립트가
+                # 따로 실행 중이어야 함).
+                _capture()
                 _patrol_active.clear()
                 _set_state("stopped", "patrol_stop(obstacle)")
                 return
