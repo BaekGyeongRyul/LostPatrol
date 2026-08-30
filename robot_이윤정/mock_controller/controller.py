@@ -143,7 +143,7 @@ OBSTACLE_DETECTION_ENABLED = True
 # (2026.08.30), MOVE_SPEED(150)+1.0초는 반대로 너무 빠르고 많이 감 —
 # PATROL_SPEED 수준으로 낮추고 시간도 줄임.
 OBSTACLE_BACKUP_SPEED = PATROL_SPEED
-OBSTACLE_BACKUP_SEC = 0.5
+OBSTACLE_BACKUP_SEC = 0.65
 
 # 분실물 자동 등록(vision_조은수/detect_and_register.py)이 "같은 물체
 # CONSECUTIVE_REQUIRED(기본 2)번 연속 감지"를 요구하는데, 장애물 정지 시
